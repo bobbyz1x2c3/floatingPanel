@@ -1,0 +1,30 @@
+{
+  "name": "nemu-float",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Neumorphic floating card board for desktop, web and mobile",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner",
+    "build": "tsc --noEmit && vite build --configLoader runner",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --port 4173 --configLoader runner",
+    "icon": "tauri icon src-tauri/icon-source.png",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.1",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  }
+}
