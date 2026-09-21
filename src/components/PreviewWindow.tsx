@@ -458,6 +458,45 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
           </span>
         ) : null}
         <span className="pv__grip" />
+        {/* 缩放放在标题栏右侧、置顶左边：标注工具收起来之后这里也一直在。 */}
+        <div className="pv__group pv__group--zoom">
+          <NeuButton
+            iconOnly
+            size="sm"
+            aria-label="缩小"
+            title="缩小"
+            onClick={() => zoomBy(1 / ZOOM_STEP)}
+          >
+            <IconZoomOut size={16} />
+          </NeuButton>
+          <button
+            type="button"
+            className="pv__zoom"
+            title="点击回到 100%"
+            onClick={() => setZoom(1)}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <NeuButton
+            iconOnly
+            size="sm"
+            aria-label="放大"
+            title="放大"
+            onClick={() => zoomBy(ZOOM_STEP)}
+          >
+            <IconZoomIn size={16} />
+          </NeuButton>
+          <NeuButton
+            iconOnly
+            size="sm"
+            aria-label="适应窗口"
+            title="适应窗口"
+            onClick={fitToWindow}
+          >
+            <IconFit size={16} />
+          </NeuButton>
+        </div>
+        <span className="pv__rule" aria-hidden="true" />
         <NeuButton
           iconOnly
           size="sm"
@@ -571,45 +610,8 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
           </div>
         ) : null}
 
+        {/* 缩放控件在标题栏那边，这里只放标注相关的东西。 */}
         <span className="pv__spacer" />
-
-        <div className="pv__group">
-          <NeuButton
-            iconOnly
-            size="sm"
-            aria-label="缩小"
-            title="缩小"
-            onClick={() => zoomBy(1 / ZOOM_STEP)}
-          >
-            <IconZoomOut size={16} />
-          </NeuButton>
-          <button
-            type="button"
-            className="pv__zoom"
-            title="点击回到 100%"
-            onClick={() => setZoom(1)}
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <NeuButton
-            iconOnly
-            size="sm"
-            aria-label="放大"
-            title="放大"
-            onClick={() => zoomBy(ZOOM_STEP)}
-          >
-            <IconZoomIn size={16} />
-          </NeuButton>
-          <NeuButton
-            iconOnly
-            size="sm"
-            aria-label="适应窗口"
-            title="适应窗口"
-            onClick={fitToWindow}
-          >
-            <IconFit size={16} />
-          </NeuButton>
-        </div>
       </div>
 
       <div className="pv__stage nm-scroll" ref={stageRef} onWheel={handleWheel}>

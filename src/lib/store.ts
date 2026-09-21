@@ -77,10 +77,10 @@ const SEED_ZONE: ZoneSize = { width: 560, height: 400 }
 const EXAMPLE_SEEDS: CardSeed[] = [
   {
     title: '欢迎使用悬浮卡片',
-    body: '按住卡片标题栏拖动，跨过中间的分界线就会自动换象限。从卡片任意一条边或角落往里拖就能改变大小，内容都会自动保存在本地。',
+    body: '在画布空白处双击就能新建一张卡片，卡片会落在双击所在的象限里。\n\n按住卡片标题栏拖动，跨过中间的分界线就会自动换象限。从卡片任意一条边或角落往里拖就能改变大小，内容都会自动保存在本地。',
     quadrant: 'do',
     width: 356,
-    height: 246,
+    height: 262,
   },
   {
     title: '重要 · 不紧急',
@@ -91,10 +91,10 @@ const EXAMPLE_SEEDS: CardSeed[] = [
   },
   {
     title: '拖进来一张图片试试',
-    body: '图片可以直接粘贴，也可以从文件夹拖进卡片；其它文件会变成一个链接，按住 Ctrl 点击就能打开。网址也能被识别：https://tauri.app',
+    body: '图片可以直接粘贴，也可以从文件夹拖进卡片。文件和文件夹会变成一个链接，按住 Ctrl 点击就能打开；拖到画布空白处、甚至拖到菜单栏上，都会顺手新建一张卡片。网址也能被识别：https://tauri.app',
     quadrant: 'delegate',
     width: 380,
-    height: 268,
+    height: 288,
   },
   {
     title: '完成后点确认',

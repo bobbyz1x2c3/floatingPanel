@@ -30,6 +30,13 @@ import {
 } from './lib/platform'
 import type { NativeDrop } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
+import {
+  boardFileStamp,
+  parseBoardFile,
+  readBoardFile,
+  serializeBoard,
+  writeBoardFile,
+} from './lib/boardFile'
 import { clearState, loadState, saveState } from './lib/storage'
 import { boardReducer, createInitialState } from './lib/store'
 import { quadrantFromPoint, zoneSizeFor } from './lib/types'
@@ -66,7 +73,8 @@ function resolveInitialState() {
 
 function titleFromAttachment(attachment: Attachment | undefined): string {
   if (!attachment) return '新卡片'
-  const trimmed = attachment.name.replace(/\.[^.]+$/, '').trim()
+  // 文件夹的名字带一个结尾斜杠（见 attachments.ts），起标题时去掉。
+  const trimmed = attachment.name.replace(/\/$/, '').replace(/\.[^.]+$/, '').trim()
   return trimmed || '新卡片'
 }
 
@@ -86,6 +94,9 @@ export function App() {
   const toastTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
   const storageWarned = useRef(false)
+  /** 状态文件：最近一次同步过的内容和修改时间，用来和 CLI 对表。 */
+  const fileStamp = useRef(0)
+  const fileSyncedText = useRef<string | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
   const boardRef = useRef<HTMLDivElement | null>(null)
   const [zone, setZone] = useState<ZoneSize>(() =>
@@ -135,13 +146,81 @@ export function App() {
     settings.theme === 'system' ? (systemDark ? 'dark' : 'light') : settings.theme
 
   useEffect(() => {
+    const text = serializeBoard(state)
+    // 内容和状态文件已经一致（比如刚被 CLI 同步过）就不用再写一遍。
+    if (isDesktop && text === fileSyncedText.current) return
     const timer = window.setTimeout(() => {
-      if (saveState(state) || storageWarned.current) return
-      storageWarned.current = true
-      notify('本地存储快满了，最新的图片可能没有被保存')
+      const saved = saveState(state)
+      if (isDesktop) {
+        void writeBoardFile(state).then((stamp) => {
+          if (stamp === null) return
+          fileSyncedText.current = text
+          fileStamp.current = stamp
+        })
+      }
+      if (!saved && !storageWarned.current) {
+        storageWarned.current = true
+        notify('本地存储快满了，最新的图片可能没有被保存')
+      }
     }, PERSIST_DELAY)
     return () => window.clearTimeout(timer)
   }, [state, notify])
+
+  /*
+    桌面端的状态文件是主数据源：启动时先读文件，没有文件（第一次跑）就把
+    当前状态写进去当种子；之后每 1.2 秒比一次修改时间，谁改了就同步过来。
+    CLI（nemu）就是靠这条路径和界面接上的。
+  */
+  useEffect(() => {
+    if (!isDesktop) return
+    let cancelled = false
+    void (async () => {
+      const raw = await readBoardFile()
+      const parsed = raw ? parseBoardFile(raw) : null
+      if (cancelled) return
+      if (parsed) {
+        const text = serializeBoard(parsed)
+        fileSyncedText.current = text
+        dispatch({ type: 'hydrate', state: { ...parsed, activeId: null } })
+      } else {
+        void writeBoardFile(stateRef.current).then((stamp) => {
+          if (stamp !== null) fileStamp.current = stamp
+        })
+      }
+      fileStamp.current = await boardFileStamp()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isDesktop) return
+    let stopped = false
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const stamp = await boardFileStamp()
+        if (stopped || !stamp || stamp === fileStamp.current) return
+        fileStamp.current = stamp
+        const raw = await readBoardFile()
+        if (!raw) return
+        const parsed = parseBoardFile(raw)
+        if (!parsed) return
+        const text = serializeBoard(parsed)
+        if (text === serializeBoard(stateRef.current)) {
+          fileSyncedText.current = text
+          return
+        }
+        fileSyncedText.current = text
+        dispatch({ type: 'hydrate', state: { ...parsed, activeId: stateRef.current.activeId } })
+        notify('已同步外部改动')
+      })()
+    }, 1200)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [notify])
 
   useEffect(() => {
     const handle = window.setInterval(() => setNow(Date.now()), TICK_INTERVAL)
@@ -201,9 +280,9 @@ export function App() {
     }
   }, [])
 
-  /** 把附件放进某张卡片；没有命中卡片时就在指定位置新建一张。 */
+  /** 把附件放进某张卡片；没有命中卡片时就新建一张。 */
   const applyAttachments = useCallback(
-    (cardId: string | null, items: Attachment[], point?: { x: number; y: number }) => {
+    (cardId: string | null, items: Attachment[], spot?: { x?: number; y?: number; quadrant?: CardData['quadrant'] }) => {
       if (items.length === 0) return
       const card = cardId
         ? stateRef.current.cards.find((item) => item.id === cardId)
@@ -220,14 +299,18 @@ export function App() {
         return
       }
 
-      const px = point?.x ?? 90
-      const py = point?.y ?? 90
+      const zoneNow = zoneRef.current
+      const hasPoint = spot?.x !== undefined && spot?.y !== undefined
+      const quadrant = hasPoint
+        ? quadrantFromPoint(spot.x as number, spot.y as number, zoneNow)
+        : (spot?.quadrant ?? 'do')
       dispatch({
         type: 'add',
-        zone: zoneRef.current,
-        quadrant: quadrantFromPoint(px, py, zoneRef.current),
-        x: px - NEW_CARD_OFFSET_X,
-        y: py - NEW_CARD_OFFSET_Y,
+        zone: zoneNow,
+        quadrant,
+        // 落在画布外面（菜单栏、抽屉上）时不给坐标，交给级联排布。
+        x: hasPoint ? (spot.x as number) - NEW_CARD_OFFSET_X : undefined,
+        y: hasPoint ? (spot.y as number) - NEW_CARD_OFFSET_Y : undefined,
         title: titleFromAttachment(items[0]),
         attachments: items.slice(0, MAX_ATTACHMENTS),
       })
@@ -241,11 +324,21 @@ export function App() {
     return (target?.closest('[data-card-id]') as HTMLElement | null)?.dataset.cardId ?? null
   }, [])
 
-  const canvasPoint = useCallback((clientX: number, clientY: number) => {
+  /**
+   * 拖放落点：画布内给精确坐标；拖到画布外面（菜单栏、抽屉、窗口边缘）时
+   * 只保留「落在哪个象限」这个信息，位置交给级联，卡片不会跑到可视区外面去。
+   */
+  const dropSpot = useCallback((clientX: number, clientY: number) => {
     const canvas = document.querySelector('.board-canvas') as HTMLElement | null
     const rect = canvas?.getBoundingClientRect()
-    if (!rect) return undefined
-    return { x: clientX - rect.left, y: clientY - rect.top }
+    if (!rect) return {}
+    const insideX = Math.min(Math.max(clientX, rect.left + 1), rect.right - 1)
+    const insideY = Math.min(Math.max(clientY, rect.top + 1), rect.bottom - 1)
+    const quadrant = quadrantFromPoint(insideX - rect.left, insideY - rect.top, zoneRef.current)
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    const inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height
+    return inside ? { x, y, quadrant } : { quadrant }
   }, [])
 
   // 桌面端：系统拖拽走 Tauri 事件，拿到的是真实路径。
@@ -266,7 +359,7 @@ export function App() {
     const paths = drop.paths.slice(0, MAX_ATTACHMENTS)
     void Promise.all(paths.map(pathToAttachment)).then((created) => {
       const list = created.filter((item): item is Attachment => item !== null)
-      applyAttachments(cardIdAt(drop.x, drop.y), list, canvasPoint(drop.x, drop.y))
+      applyAttachments(cardIdAt(drop.x, drop.y), list, dropSpot(drop.x, drop.y))
     })
   }
 
@@ -290,7 +383,7 @@ export function App() {
       const picked = files.slice(0, MAX_ATTACHMENTS)
       void Promise.all(picked.map(fileToAttachment)).then((created) => {
         const list = created.filter((item): item is Attachment => item !== null)
-        applyAttachments(cardIdAt(clientX, clientY), list, canvasPoint(clientX, clientY))
+        applyAttachments(cardIdAt(clientX, clientY), list, dropSpot(clientX, clientY))
       })
     }
     window.addEventListener('dragover', onDragOver)
@@ -299,7 +392,7 @@ export function App() {
       window.removeEventListener('dragover', onDragOver)
       window.removeEventListener('drop', onDrop)
     }
-  }, [applyAttachments, cardIdAt, canvasPoint])
+  }, [applyAttachments, cardIdAt, dropSpot])
 
   // 焦点不在卡片里时的兜底粘贴：进当前卡片，没有卡片就新建一张。
   useEffect(() => {

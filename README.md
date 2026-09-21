@@ -55,6 +55,7 @@ npm run preview        # 预览构建产物
 
 npm run desktop:dev    # 桌面端开发（原生悬浮窗 + 热更新）
 npm run desktop:build  # 打包当前平台安装包
+npm run cli:build      # 构建命令行工具 nemu（src-tauri/target/release/nemu.exe）
 
 npm run icon           # 由 src-tauri/icon-source.png 重新生成全平台图标
 ```
@@ -127,8 +128,10 @@ npm run tauri ios init     && npm run tauri ios build
 | 操作 | 结果 |
 | --- | --- |
 | 在卡片里 `Ctrl/Cmd + V` 粘贴截图 | 变成内嵌图片（自动缩放后再存） |
-| 把图片拖进卡片 / 画布 | 变成内嵌图片，拖到空白处会顺手新建一张卡片 |
-| 把其它文件拖进卡片 / 画布 | 变成文件链接 |
+| 把图片拖进卡片 | 变成内嵌图片 |
+| 把图片 / 文件 / 文件夹拖到空白处 | 顺手新建一张卡片，把拖进来的东西挂上去 |
+| 把文件或文件夹拖进卡片 | 变成一条链接（文件夹名字后面带 `/` 方便区分） |
+| 拖到**菜单栏或窗口任意位置** | 一样会新建卡片，位置按左右分到对应象限里排，不会跑到窗口外面 |
 
 - 正文里出现的网址会被自动识别成链接条
 - **按住 `Ctrl`（macOS 为 `⌘`）点击**文件链接或网址才会打开；普通点击只给一句提示，避免编辑时误触
@@ -144,8 +147,8 @@ npm run tauri ios init     && npm run tauri ios build
 | 能力 | 说明 |
 | --- | --- |
 | 临时标注 | 铅笔、矩形、圆形、箭头四种工具，四色可选；支持撤销上一笔和清空 |
-| 工具条可收起 | 点工具条左侧的「收起标注」把标注工具收掉，只留缩放；收起后左键也变成平移，就是一块纯看图，标注本身留在画面上不消失 |
-| 缩放 | **滚轮直接缩放**，以光标为中心（不用按 Ctrl）；也有按钮缩放、点百分比回到 100%、一键适应窗口 |
+| 工具条可收起 | 点工具条左侧的「收起标注」整条标注工具就收掉（只剩一个展开按钮）；收起后左键也变成平移，就是一块纯看图，标注本身留在画面上不消失 |
+| 缩放 | **滚轮直接缩放**，以光标为中心（不用按 Ctrl）；缩放按钮在标题栏右上角、置顶左边（缩小 / 百分比 / 放大 / 适应窗口），点百分比回到 100% |
 | 平移 | 放大之后按住**右键**拖动即可平移，中键或空格 + 左键同样可以；按 Ctrl 滚轮、按 Shift 滚轮则交还给滚动条 |
 | 窗口 | **整条标题栏都能拖动窗口**（文件名留白、左侧内边距、按钮缝隙都算），右上角置顶开关、最小化、最大化 / 还原、关闭 |
 
@@ -154,6 +157,42 @@ npm run tauri ios init     && npm run tauri ios build
 窗口之间靠 `localStorage` 传递这一张图（`nemu-float.preview.<id>`，只保留最近一份），因此预览窗和主面板不共享内存，互不阻塞。
 
 > 主面板顶栏和预览窗标题栏都用 `data-tauri-drag-region="deep"`：容器里凡是不落在按钮 / 输入框上的地方都能拖动窗口，不用逐个元素去标。双击这两条栏会最大化 / 还原窗口，和无边框窗口的常规习惯一致。
+
+## 命令行（nemu）
+
+除了鼠标，卡片还可以用命令行读写——给脚本和 AI agent 用。构建一次：
+
+```bash
+npm run cli:build     # 产物：src-tauri/target/release/nemu(.exe)
+```
+
+```bash
+nemu list                       # 列出卡片
+nemu list --quadrant do         # 只看「紧急 · 重要」
+nemu search 周报                # 按标题 / 正文 / 附件名搜
+nemu show '#1'                  # 看第 1 张的完整内容
+nemu add --title "写周报" --body "整理本周进展" --quadrant schedule
+nemu add --title "看这个 issue" --url "https://example.com/i/1"
+nemu add --title "设计稿" --attach "D:\design\home.png"
+nemu set '#2' --append "补一句：下周一交"
+nemu done '#2'                  # 完成并归档
+nemu archived / restore '#1' / rm '#2' / clear-archive
+nemu board                      # 各象限分布 + 状态文件路径
+```
+
+选择器支持完整 id、id 前缀（`a7226231`）或 `#序号`；所有命令都能加 `--json` 给机器读。
+
+**它是怎么和界面接上的**：状态不再只存在 WebView 的 `localStorage` 里，桌面端会把它同步到
+`%APPDATA%\app.nemufloat.desktop\board.json`（macOS / Linux 见 `nemu path`）。界面每次改动写这个文件，
+并且每 1.2 秒比对一次文件的修改时间——所以 CLI 写完，窗口里 1~2 秒就会自己出现；app 没开着的时候 CLI 也能直接写，
+下次启动就能看到。写入用「临时文件 + 重命名」，两边同时写也不会读到半截内容。
+
+浏览器模式没有这个文件，只能用界面本身。
+
+## 给 agent 用的 skill
+
+仓库里带了一份 skill：`skills/nemufloat-cards/SKILL.md`，把上面的命令、象限含义和常用流程写成了 agent 能直接照做的一页说明。
+把它放进 `~/.codex/skills/nemufloat-cards/`（本机已经装了一份）之后，让 agent「把这几件事记到悬浮卡片上」它就知道该怎么调 `nemu`。
 
 ## 设置项
 
@@ -166,9 +205,11 @@ npm run tauri ios init     && npm run tauri ios build
 ```
 src/
   components/      界面组件（卡片、画板、顶栏、归档抽屉、设置抽屉、图片预览窗、控件库、图标）
-  lib/             状态机（store.ts）、持久化、平台桥接（platform.ts）、预览传参（preview.ts）、附件、链接识别、图片压缩、格式化、完成音效（sound.ts）
+  lib/             状态机（store.ts）、持久化、状态文件桥接（boardFile.ts）、平台桥接（platform.ts）、预览传参（preview.ts）、附件、链接识别、图片压缩、格式化、完成音效（sound.ts）
   styles/          tokens.css（设计变量）/ neumorphism.css（控件库）/ app.css（主面板布局）/ preview.css（预览窗）
-src-tauri/         Rust 外壳、窗口配置、权限、图标
+src-tauri/         Rust 外壳、窗口配置、权限、图标；board.rs 是界面和 CLI 共用的状态文件读写
+src-tauri/cli/     命令行工具 nemu（单独一个 crate，免得打包时和 app 二进制混在一起）
+skills/            给 agent 用的 skill（nemufloat-cards）
 scripts/           应用图标生成脚本
 ```
 
@@ -185,3 +226,4 @@ scripts/           应用图标生成脚本
 | 拖入文件拿到真实路径 | 支持（可交给默认程序打开） | 仅能拿到文件内容，非图片会话结束即失效 |
 | 粘贴截图 | 支持 | 支持 |
 | 本地持久化 | `localStorage` | `localStorage` |
+| 命令行读写卡片（`nemu`） | 支持（和界面共用状态文件） | — |

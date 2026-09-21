@@ -1875,8 +1875,18 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "opener",
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
+]
+
+[[package]]
+name = "nemufloat-cli"
+version = "0.1.0"
+dependencies = [
+ "nemufloat",
+ "serde_json",
 ]
 
 [[package]]

@@ -135,6 +135,23 @@ export async function readFileAsDataUrl(path: string): Promise<string | null> {
   return result.ok ? result.value : null
 }
 
+export interface PathProbe {
+  name: string
+  isDir: boolean
+  size: number
+}
+
+/** 桌面端问一句这个路径是文件还是文件夹（浏览器端拿不到，返回 null）。 */
+export async function probePath(path: string): Promise<PathProbe | null> {
+  const result = await invoke<PathProbe>('path_info', { path })
+  if (!result.ok || !result.value) return null
+  return {
+    name: result.value.name || path,
+    isDir: result.value.isDir === true,
+    size: typeof result.value.size === 'number' ? result.value.size : 0,
+  }
+}
+
 function openViaWindow(target: string): boolean {
   try {
     return window.open(target, '_blank', 'noopener,noreferrer') !== null

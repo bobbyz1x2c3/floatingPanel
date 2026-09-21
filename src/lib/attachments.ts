@@ -1,7 +1,7 @@
 import { createId } from './id'
 import { imageFileToDataUrl } from './image'
 import { isImageName } from './links'
-import { readFileAsDataUrl, toFileHref } from './platform'
+import { probePath, readFileAsDataUrl, toFileHref } from './platform'
 import type { Attachment } from './types'
 
 /** 单张卡片最多保留的附件数量。 */
@@ -48,15 +48,26 @@ export async function fileToAttachment(file: File): Promise<Attachment | null> {
   return createAttachment({ name: file.name || '附件', kind: 'file', src, size: file.size })
 }
 
-/** 桌面端从系统拖入：拿到的是真实路径，图片直接内嵌，其它文件留下 file:// 链接。 */
+/**
+ * 桌面端从系统拖入：拿到的是真实路径。
+ * 图片直接内嵌；文件夹和其它文件都只留一条 file:// 链接，按住 Ctrl 点击交给系统打开。
+ */
 export async function pathToAttachment(path: string): Promise<Attachment | null> {
-  const name = fileNameFromPath(path)
-  if (isImageName(name)) {
+  const probe = await probePath(path)
+  const name = probe?.name ?? fileNameFromPath(path)
+  const isDir = probe?.isDir ?? false
+
+  if (!isDir && isImageName(name)) {
     const src = await readFileAsDataUrl(path)
-    if (src) return createAttachment({ name, kind: 'image', src, size: 0 })
-    return createAttachment({ name, kind: 'file', src: toFileHref(path), size: 0 })
+    if (src) return createAttachment({ name, kind: 'image', src, size: probe?.size ?? 0 })
   }
-  return createAttachment({ name, kind: 'file', src: toFileHref(path), size: 0 })
+  // 文件夹在名字后面加个斜杠，一眼能和文件区分开。
+  return createAttachment({
+    name: isDir ? `${name}/` : name,
+    kind: 'file',
+    src: toFileHref(path),
+    size: isDir ? 0 : (probe?.size ?? 0),
+  })
 }
 
 export function mergeAttachments(current: Attachment[], incoming: Attachment[]): Attachment[] {
