@@ -120,21 +120,43 @@ body.is-desktop .shell::before {
 
 .topbar {
   flex: 0 0 auto;
-  display: flex;
+  /*
+    三列网格：左右两列等宽（1fr），中间那列按内容宽度。
+    这样搜索框落在整个菜单栏的正中间，和左右各有多少按钮无关。
+  */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
   min-height: 52px;
   padding: 0 14px 0 12px;
-  flex-wrap: nowrap;
   overflow: hidden;
   user-select: none;
+}
+
+.topbar__side {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.topbar__side--right {
+  justify-content: flex-end;
+}
+
+.topbar__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .topbar__brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -158,12 +180,6 @@ body.is-desktop .shell::before {
   letter-spacing: 0.02em;
   color: var(--nm-text-strong);
   white-space: nowrap;
-}
-
-.topbar__spacer {
-  flex: 1 1 auto;
-  align-self: stretch;
-  min-width: 4px;
 }
 
 .topbar__divider {
@@ -205,9 +221,9 @@ body.is-desktop .shell::before {
 
 .search {
   position: relative;
-  flex: 1 1 auto;
-  max-width: 300px;
-  min-width: 96px;
+  /* 宽度跟着窗口走，但保持在中间那条格里，不会把两侧挤变形。 */
+  width: clamp(120px, 26vw, 330px);
+  min-width: 0;
   display: flex;
   align-items: center;
 }
@@ -256,6 +272,11 @@ body.is-desktop .shell::before {
   min-height: 0;
   overflow: auto;
   padding: 6px 16px 20px;
+  /*
+    永远给纵向滚动条留位置：否则横向/纵向滚动条一出现一消失，量出来的
+    可视区就会跳，四象限跟着反复重算，窗口缩放时整个布局都在抖。
+  */
+  scrollbar-gutter: stable;
   /* 空白处拖动不要拉出一片文本选区，否则接下来的边缘缩放会被原生拖放打断。 */
   user-select: none;
 }
@@ -281,13 +302,15 @@ body.is-desktop .shell::before {
   position: absolute;
   display: flex;
   flex-direction: column;
-  min-width: 230px;
-  min-height: 132px;
+  /* 和 types.ts 里的 CARD_MIN_WIDTH / CARD_MIN_HEIGHT 保持一致。 */
+  min-width: 250px;
+  min-height: 168px;
   border-radius: var(--nm-r-lg);
   background: rgb(var(--glass-rgb) / var(--glass-fill-card));
   -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-sat));
   backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-sat));
-  border: 1px solid var(--glass-edge-soft);
+  /* 不要亮边：用一层极淡的暗描边收个形，卡片周围就不会泛出一圈光晕。 */
+  border: 1px solid color-mix(in srgb, var(--nm-shade) 20%, transparent);
   box-shadow: var(--card-shadow);
   transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease),
     opacity var(--nm-t) var(--nm-ease);
@@ -410,6 +433,30 @@ html[data-gesture] .card__title {
   color: var(--nm-accent);
 }
 
+/* 「完成」是主操作：比另外两个大一号，带强调色的高光与投影。 */
+.card__actions .nm-btn.card__done {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  color: var(--nm-accent);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
+  border-color: transparent;
+  box-shadow: 0 3px 8px -3px color-mix(in srgb, var(--nm-accent) 62%, transparent),
+    -2px -2px 6px var(--nm-glow), 2px 2px 6px color-mix(in srgb, var(--nm-shade) 88%, transparent);
+}
+
+.card__actions .nm-btn.card__done:hover {
+  background: color-mix(in srgb, var(--nm-accent-soft) 70%, rgb(var(--glass-rgb) / var(--glass-fill-field)));
+  color: var(--nm-accent);
+  box-shadow: 0 5px 14px -3px color-mix(in srgb, var(--nm-accent) 76%, transparent),
+    -2px -2px 7px var(--nm-glow), 2px 2px 7px color-mix(in srgb, var(--nm-shade) 92%, transparent);
+}
+
+.card__actions .nm-btn.card__done:active {
+  box-shadow: inset 2px 2px 5px color-mix(in srgb, var(--nm-shade) 90%, transparent),
+    inset -2px -2px 5px var(--nm-glow);
+}
+
 .card__body {
   display: flex;
   flex-direction: column;
@@ -444,26 +491,18 @@ html[data-gesture] .card__title {
   color: var(--nm-muted);
 }
 
-.card__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 12px 9px 15px;
-  font-size: 11.5px;
-  color: var(--nm-muted);
-}
-
-.card__time {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.card__confirm {
+/* 更新时间不是一行文本，而是标题栏右侧的一枚“印子”。 */
+.card__stamp {
   flex: 0 0 auto;
-  gap: 6px;
+  pointer-events: none;
+  user-select: none;
+  color: var(--nm-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  opacity: 0.55;
+  text-shadow: 0 1px 0 var(--glass-highlight);
 }
 
 /* 卡片四周都能拉大小：八条透明热区，光标和拖拽方向一一对应。 */
@@ -1135,70 +1174,6 @@ html[data-gesture] .card__title {
   color: var(--nm-muted);
 }
 
-/* ---------- 图片预览 ---------- */
-
-.preview {
-  position: absolute;
-  inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(10 13 20 / 0.5);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  animation: preview-in var(--nm-t) var(--nm-ease-out);
-}
-
-@keyframes preview-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.preview__frame {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 100%;
-  max-height: 100%;
-  margin: 0;
-  padding: 14px;
-  border-radius: var(--nm-r-lg);
-  background: rgb(var(--glass-rgb) / var(--glass-fill-float));
-  border: 1px solid var(--glass-edge);
-  box-shadow: var(--glass-shadow);
-}
-
-.preview__image {
-  display: block;
-  max-width: min(880px, 78vw);
-  max-height: 66vh;
-  border-radius: var(--nm-r-md);
-  object-fit: contain;
-  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
-}
-
-.preview__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.preview__name {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--nm-text-strong);
-}
-
 .toast {
   position: absolute;
   left: 50%;
@@ -1256,8 +1231,7 @@ html[data-gesture] .card__title {
   }
 
   .search {
-    max-width: none;
-    min-width: 72px;
+    width: clamp(104px, 44vw, 260px);
   }
 }
 
@@ -1276,9 +1250,6 @@ html[data-gesture] .card__title {
     display: none;
   }
 
-  .topbar__add {
-    padding: 0 10px;
-  }
 }
 
 /* 再窄就整体缩一档，保证一行放得下（桌面端最小窗口是 520px 宽）。 */
@@ -1305,7 +1276,7 @@ html[data-gesture] .card__title {
   }
 
   .search {
-    min-width: 62px;
+    width: clamp(84px, 46vw, 200px);
   }
 
   .topbar .nm-field {

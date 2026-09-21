@@ -33,6 +33,7 @@ export type BoardAction =
   | { type: 'collapseAll'; value: boolean }
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'arrange'; zone: ZoneSize }
+  | { type: 'rezone'; from: ZoneSize; to: ZoneSize }
   | { type: 'clear' }
   | { type: 'restoreExamples' }
   | { type: 'archive'; id: string }
@@ -201,6 +202,27 @@ function arrangeCards(cards: CardData[], zone: ZoneSize): CardData[] {
   })
 }
 
+/**
+ * 象限尺寸变了（窗口缩放）：每张卡片按它自己所属象限做等比位移。
+ * 卡片在那一格里的相对位置保持不变，所以不会出现“右上角的卡片被窗口一拉就跑到左上角”。
+ * 刻意不取整，避免连续拖动窗口时误差一步步累积。
+ */
+function rezoneCards(cards: CardData[], from: ZoneSize, to: ZoneSize): CardData[] {
+  if (from.width <= 0 || from.height <= 0) return cards
+  const scaleX = to.width / from.width
+  const scaleY = to.height / from.height
+  if (scaleX === 1 && scaleY === 1) return cards
+  return cards.map((card) => {
+    const before = quadrantOrigin(card.quadrant, from)
+    const after = quadrantOrigin(card.quadrant, to)
+    return {
+      ...card,
+      x: after.x + (card.x - before.x) * scaleX,
+      y: after.y + (card.y - before.y) * scaleY,
+    }
+  })
+}
+
 export function boardReducer(state: BoardState, action: BoardAction): BoardState {
   switch (action.type) {
     case 'hydrate':
@@ -287,6 +309,9 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
 
     case 'arrange':
       return { ...state, version: 2, cards: arrangeCards(state.cards, action.zone) }
+
+    case 'rezone':
+      return { ...state, cards: rezoneCards(state.cards, action.from, action.to) }
 
     case 'clear':
       return { ...state, cards: [], activeId: null }

@@ -11,8 +11,6 @@ import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { TopBar } from './components/TopBar'
-import { NeuButton } from './components/controls'
-import { IconClose } from './components/icons'
 import {
   MAX_ATTACHMENTS,
   fileToAttachment,
@@ -25,10 +23,13 @@ import {
   closeWindow,
   isDesktop,
   minimizeWindow,
+  openPreviewWindow,
   platformLabel,
+  toggleMaximizeWindow,
   watchNativeDrop,
 } from './lib/platform'
 import type { NativeDrop } from './lib/platform'
+import { putPreviewPayload } from './lib/preview'
 import { clearState, loadState, saveState } from './lib/storage'
 import { boardReducer, createInitialState } from './lib/store'
 import { quadrantFromPoint, zoneSizeFor } from './lib/types'
@@ -43,11 +44,16 @@ const TICK_INTERVAL = 30000
 const NEW_CARD_OFFSET_X = 46
 const NEW_CARD_OFFSET_Y = 22
 
-/** 四象限的可用区域 = .board 的内容盒（要扣掉内边距和滚动条）。 */
+/** 四象限的可用区域 = .board 的内容盒（扣掉内边距）。 */
 function measureBoardViewport(element: HTMLElement) {
   const style = window.getComputedStyle(element)
   const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+  /*
+    clientWidth/clientHeight 已经把滚动条扣掉了，这里是最准的可视区。
+    之所以不会抖：.board 上挂着 scrollbar-gutter: stable，纵向滚动条槽常驻，
+    它的出现/消失不再改变这里量到的尺寸，也就不会再反过来触发象限重算。
+  */
   return {
     width: element.clientWidth - padX,
     height: element.clientHeight - padY,
@@ -69,10 +75,11 @@ export function App() {
   const [query, setQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const [preview, setPreview] = useState<Attachment | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  /** 开着的图片预览窗数量：预览窗抢焦点时不应该把主面板当成“失焦”淡化掉。 */
+  const [previewOpen, setPreviewOpen] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const [systemDark, setSystemDark] = useState(false)
   const [windowFocused, setWindowFocused] = useState(true)
@@ -86,6 +93,8 @@ export function App() {
   )
   const zoneRef = useRef(zone)
   zoneRef.current = zone
+  /** 首帧那次测量只是把猜测值换成真实值，不应该被当成一次“象限变化”去缩放卡片。 */
+  const zoneReady = useRef(false)
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -98,9 +107,17 @@ export function App() {
     const measure = () => {
       const viewport = measureBoardViewport(element)
       const next = zoneSizeFor(viewport.width, viewport.height)
-      setZone((prev) =>
-        prev.width === next.width && prev.height === next.height ? prev : next,
-      )
+      const previous = zoneRef.current
+      const unchanged = previous.width === next.width && previous.height === next.height
+      if (!zoneReady.current) {
+        zoneReady.current = true
+        if (!unchanged) setZone(next)
+        return
+      }
+      if (unchanged) return
+      // 象限变了，卡片按“原本在自己那一格里的相对位置”跟着挪，而不是钉死在绝对坐标上。
+      dispatch({ type: 'rezone', from: previous, to: next })
+      setZone(next)
     }
     measure()
     const observer = new ResizeObserver(measure)
@@ -329,6 +346,36 @@ export function App() {
     notify('已按象限重新排列')
   }, [notify])
 
+  /**
+   * 图片预览走独立窗口：主面板把这一张图写进 localStorage，
+   * 预览窗按 id 读出来，两边互不阻塞，面板该拖该改都不受影响。
+   */
+  const openPreview = useCallback(
+    async (attachment: Attachment) => {
+      if (!attachment.src) {
+        notify('这张图片没有内容，打不开')
+        return
+      }
+      const payloadId = putPreviewPayload({
+        name: attachment.name || '图片',
+        src: attachment.src,
+      })
+      if (!payloadId) {
+        notify('图片太大，本地存不下，没法单独打开')
+        return
+      }
+      setPreviewOpen((count) => count + 1)
+      const opened = await openPreviewWindow(payloadId, attachment.name || '图片预览', () =>
+        setPreviewOpen((count) => Math.max(0, count - 1)),
+      )
+      if (!opened) {
+        setPreviewOpen((count) => Math.max(0, count - 1))
+        notify('预览窗口没能打开，请稍后再试')
+      }
+    },
+    [notify],
+  )
+
   const patchSettings = useCallback((patch: Partial<Settings>) => {
     dispatch({ type: 'settings', patch })
   }, [])
@@ -386,10 +433,6 @@ export function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (preview) {
-          setPreview(null)
-          return
-        }
         setSettingsOpen(false)
         setArchiveOpen(false)
         setConfirmingClear(false)
@@ -411,9 +454,10 @@ export function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [addCard, preview, toggleSettings])
+  }, [addCard, toggleSettings])
 
-  const isDimmed = settings.dimOnBlur && !windowFocused && !settingsOpen && !archiveOpen
+  const isDimmed =
+    settings.dimOnBlur && !windowFocused && previewOpen === 0 && !settingsOpen && !archiveOpen
 
   return (
     <div className={`shell${isDimmed ? ' is-dimmed' : ''}`}>
@@ -429,11 +473,9 @@ export function App() {
           onQueryChange={setQuery}
           matchCount={matchCount}
           theme={settings.theme}
-          accent={settings.accent}
           allCollapsed={allCollapsed}
           settingsOpen={settingsOpen}
           archiveOpen={archiveOpen}
-          onAdd={() => addCard()}
           onArrange={arrange}
           onToggleCollapseAll={() => dispatch({ type: 'collapseAll', value: !allCollapsed })}
           onCycleTheme={cycleTheme}
@@ -441,6 +483,7 @@ export function App() {
           onToggleSettings={toggleSettings}
           onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
           onMinimize={() => void minimizeWindow()}
+          onMaximize={() => void toggleMaximizeWindow()}
           onClose={() => void closeWindow()}
         />
 
@@ -461,10 +504,12 @@ export function App() {
           }}
           onArchive={(id) => {
             dispatch({ type: 'archive', id })
-            if (settings.soundOnComplete) playCompleteSound()
             notify('已归档，可在「归档」里找到')
           }}
-          onPreview={setPreview}
+          onCompleteSound={() => {
+            if (settings.soundOnComplete) playCompleteSound()
+          }}
+          onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
           zone={zone}
           boardRef={boardRef}
@@ -509,26 +554,6 @@ export function App() {
             }}
             onClose={() => setSettingsOpen(false)}
           />
-        ) : null}
-
-        {preview ? (
-          <div
-            className="preview"
-            role="dialog"
-            aria-label={`预览 ${preview.name}`}
-            onClick={() => setPreview(null)}
-          >
-            <figure className="preview__frame" onClick={(event) => event.stopPropagation()}>
-              <img className="preview__image" src={preview.src} alt={preview.name} />
-              <figcaption className="preview__bar">
-                <span className="preview__name">{preview.name}</span>
-                <NeuButton size="sm" onClick={() => setPreview(null)}>
-                  <IconClose size={14} />
-                  关闭
-                </NeuButton>
-              </figcaption>
-            </figure>
-          </div>
         ) : null}
 
         {toast ? (

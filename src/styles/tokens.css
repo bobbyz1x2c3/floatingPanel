@@ -118,15 +118,17 @@ html[data-accent='graphite'],
 }
 
 :root {
-  --card-shadow: 0 18px 40px -10px color-mix(in srgb, var(--nm-shade) 84%, transparent),
-    0 5px 14px -6px color-mix(in srgb, var(--nm-shade) 58%, transparent),
-    inset 0 1px 0 var(--glass-highlight);
-  --card-shadow-front: 0 26px 56px -12px color-mix(in srgb, var(--nm-shade) 88%, transparent),
-    0 8px 20px -8px color-mix(in srgb, var(--nm-shade) 62%, transparent),
-    inset 0 1px 0 var(--glass-highlight);
-  --card-shadow-drag: 0 36px 72px -14px color-mix(in srgb, var(--nm-shade) 92%, transparent),
-    0 12px 26px -10px color-mix(in srgb, var(--nm-shade) 66%, transparent),
-    inset 0 1px 0 var(--glass-highlight);
+  /*
+    卡片只要一小片落在下缘的投影：负 spread 拉大、模糊半径压小。
+    这里刻意不做任何 inset 内高光——它会在卡片四边铺出一圈发白的光晕，
+    卡片因此只靠投影和自身填充来立起来。
+  */
+  --card-shadow: 0 6px 14px -8px color-mix(in srgb, var(--nm-shade) 58%, transparent),
+    0 1px 3px -1px color-mix(in srgb, var(--nm-shade) 30%, transparent);
+  --card-shadow-front: 0 9px 18px -10px color-mix(in srgb, var(--nm-shade) 66%, transparent),
+    0 2px 5px -2px color-mix(in srgb, var(--nm-shade) 38%, transparent);
+  --card-shadow-drag: 0 16px 30px -14px color-mix(in srgb, var(--nm-shade) 74%, transparent),
+    0 4px 10px -5px color-mix(in srgb, var(--nm-shade) 46%, transparent);
   --nm-out-sm: 4px 4px 9px var(--nm-shade), -4px -4px 9px var(--nm-glow);
   --nm-out: 8px 8px 17px var(--nm-shade), -8px -8px 17px var(--nm-glow);
   --nm-out-lg: 13px 13px 28px var(--nm-shade), -12px -12px 26px var(--nm-glow);

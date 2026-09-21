@@ -5,6 +5,9 @@ import type { Attachment, CardData, ZoneSize } from '../lib/types'
 import { CardView } from './CardView'
 import { IconLayers } from './icons'
 
+/** 画布在最后一张卡片之外多留的余量，方便把卡片拖到边缘外一点。 */
+const EDGE_SLACK = 24
+
 export interface BoardProps {
   cards: CardData[]
   activeId: string | null
@@ -20,6 +23,7 @@ export interface BoardProps {
   onFocus: (id: string) => void
   onRemove: (id: string) => void
   onArchive: (id: string) => void
+  onCompleteSound: () => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   onBlurBoard: () => void
@@ -51,6 +55,7 @@ export function Board({
   onFocus,
   onRemove,
   onArchive,
+  onCompleteSound,
   onPreview,
   onNotify,
   onBlurBoard,
@@ -61,8 +66,9 @@ export function Board({
     let height = zone.height * 2
     for (const card of cards) {
       const cardHeight = card.collapsed ? 78 : card.height
-      width = Math.max(width, card.x + card.width + 64)
-      height = Math.max(height, card.y + cardHeight + 64)
+      // 只留一点点余量：留多了会让画布平白比可视区宽，无端多出一条滚动条。
+      width = Math.max(width, card.x + card.width + EDGE_SLACK)
+      height = Math.max(height, card.y + cardHeight + EDGE_SLACK)
     }
     return { width, height }
   }, [cards, zone])
@@ -151,6 +157,7 @@ export function Board({
             onBringToFront={() => onFocus(card.id)}
             onRemove={() => onRemove(card.id)}
             onArchive={() => onArchive(card.id)}
+            onCompleteSound={onCompleteSound}
             onPreview={onPreview}
             onNotify={onNotify}
           />
@@ -163,7 +170,7 @@ export function Board({
             </span>
             <p className="empty__title">还没有卡片</p>
             <p className="empty__hint">
-              点击上方「新建」，或在空白处双击，卡片会落到双击所在的象限里。
+              在空白处双击就能新建卡片，卡片会落到双击所在的象限里。
             </p>
           </div>
         ) : null}

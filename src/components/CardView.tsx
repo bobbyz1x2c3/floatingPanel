@@ -6,7 +6,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
 import { MAX_ATTACHMENTS, fileToAttachment, mergeAttachments } from '../lib/attachments'
-import { formatDateTime, formatFileSize, formatRelativeShort } from '../lib/format'
+import { formatDateTime, formatFileSize, formatStamp } from '../lib/format'
 import { caretIndexFromPoint, findLinkAt, listLinks } from '../lib/links'
 import { openModifier, openTarget } from '../lib/platform'
 import { snapValue } from '../lib/store'
@@ -44,6 +44,7 @@ export interface CardViewProps {
   onBringToFront: () => void
   onRemove: () => void
   onArchive: () => void
+  onCompleteSound: () => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
 }
@@ -83,6 +84,7 @@ export function CardView({
   onBringToFront,
   onRemove,
   onArchive,
+  onCompleteSound,
   onPreview,
   onNotify,
 }: CardViewProps) {
@@ -288,6 +290,8 @@ export function CardView({
 
   const handleArchive = () => {
     if (archiving) return
+    // 音效跟着点击走，不等归档动效播完。
+    onCompleteSound()
     setArchiving(true)
     archiveTimer.current = window.setTimeout(() => onArchive(), ARCHIVE_ANIMATION)
   }
@@ -365,7 +369,20 @@ export function CardView({
           spellCheck={false}
           onChange={(event) => onChange({ title: event.target.value })}
         />
+        <span className="card__stamp" title={`最后更新 ${formatDateTime(card.updatedAt)}`}>
+          {formatStamp(card.updatedAt, now)}
+        </span>
         <div className="card__actions">
+          <NeuButton
+            iconOnly
+            size="sm"
+            variant="danger"
+            title="删除卡片"
+            aria-label="删除卡片"
+            onClick={onRemove}
+          >
+            <IconTrash size={16} />
+          </NeuButton>
           <NeuButton
             iconOnly
             size="sm"
@@ -381,32 +398,15 @@ export function CardView({
           <NeuButton
             iconOnly
             size="sm"
-            variant="danger"
-            title="删除卡片"
-            aria-label="删除卡片"
-            onClick={onRemove}
+            className="card__done"
+            disabled={archiving}
+            aria-label="完成并归档这张卡片"
+            title="完成并归档这张卡片"
+            onClick={handleArchive}
           >
-            <IconTrash size={16} />
+            <IconCheck size={21} strokeWidth={2.9} />
           </NeuButton>
         </div>
-      </div>
-
-      <div className="card__meta">
-        <span className="card__time" title={`最后更新 ${formatDateTime(card.updatedAt)}`}>
-          更新于 {formatRelativeShort(card.updatedAt, now)}
-        </span>
-        <NeuButton
-          size="sm"
-          variant="primary"
-          className="card__confirm"
-          disabled={archiving}
-          aria-label="完成并归档这张卡片"
-          title="完成并归档这张卡片"
-          onClick={handleArchive}
-        >
-          <IconCheck size={15} />
-          完成
-        </NeuButton>
       </div>
 
       <div className="card__body">

@@ -30,6 +30,23 @@ export function formatDateTime(timestamp: number): string {
   )}:${pad(date.getMinutes())}`
 }
 
+/** 卡片角落那枚时间印子：越短越好，几秒级的变化不值得占一整行。 */
+export function formatStamp(timestamp: number, now: number): string {
+  const diff = Math.max(0, now - timestamp)
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}hrs`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}w`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo`
+  return `${Math.floor(days / 365)}y`
+}
+
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }

@@ -235,3 +235,98 @@ export function IconEraser(props: Omit<IconProps, 'children'>) {
     </Icon>
   )
 }
+
+/* ---------- 预览窗：画图工具 ---------- */
+
+export function IconPencil(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M4.2 20.2h3.6L19.2 8.8a2.4 2.4 0 0 0-3.4-3.4L4.2 16.6v3.6Z" />
+      <path d="M14.6 6.6l3 3" />
+    </Icon>
+  )
+}
+
+export function IconSquare(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="3" />
+    </Icon>
+  )
+}
+
+export function IconCircle(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8" />
+    </Icon>
+  )
+}
+
+export function IconArrowLine(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M5 19 18.4 5.6" />
+      <path d="M12.4 5.6h6v6" />
+    </Icon>
+  )
+}
+
+export function IconUndo(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M9.5 7.5 5 12l4.5 4.5" />
+      <path d="M5 12h9.2a5 5 0 0 1 5 5v2" />
+    </Icon>
+  )
+}
+
+export function IconZoomIn(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.4" />
+      <path d="M11 8.6v4.8M8.6 11h4.8" />
+      <path d="M15.7 15.7 20 20" />
+    </Icon>
+  )
+}
+
+export function IconZoomOut(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.4" />
+      <path d="M8.6 11h4.8" />
+      <path d="M15.7 15.7 20 20" />
+    </Icon>
+  )
+}
+
+export function IconFit(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 9V4.5H9" />
+      <path d="M15 4.5h4.5V9" />
+      <path d="M19.5 15v4.5H15" />
+      <path d="M9 19.5H4.5V15" />
+    </Icon>
+  )
+}
+
+/* ---------- 窗口控制 ---------- */
+
+export function IconMaximize(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="5" width="14" height="14" rx="2.6" />
+    </Icon>
+  )
+}
+
+export function IconRestoreWindow(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <rect x="4.4" y="8.4" width="11.2" height="11.2" rx="2.4" />
+      <path d="M8.6 8.4V6.6a2 2 0 0 1 2-2h6.9a2 2 0 0 1 2 2v6.9a2 2 0 0 1-2 2h-1.8" />
+    </Icon>
+  )
+}

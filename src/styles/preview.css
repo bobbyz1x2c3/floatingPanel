@@ -1,0 +1,238 @@
+/*
+  独立图片预览窗。窗口本身是无边框 + 透明的，所以整块面板自己画圆角和外框；
+  控件继续复用 newmorphism.css 里的 .nm-btn，保持和主面板同一套手感。
+*/
+
+.pv {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--nm-r-lg);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-float));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  color: var(--nm-text);
+  box-shadow: var(--glass-shadow);
+}
+
+.pv.is-panning,
+.pv.is-panning * {
+  cursor: grabbing !important;
+}
+
+/* ---------- 标题栏 ---------- */
+
+.pv__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 14px;
+  border-bottom: 1px solid var(--nm-hair);
+}
+
+.pv__dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--nm-accent);
+  box-shadow: 0 0 0 3px var(--nm-accent-soft);
+}
+
+.pv__title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--nm-text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pv__meta {
+  flex: 0 0 auto;
+  color: var(--nm-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  user-select: none;
+}
+
+/* 中间的空白既能拖动窗口，也把按钮推到右边。 */
+.pv__grip {
+  flex: 1;
+  min-width: 12px;
+  align-self: stretch;
+}
+
+/* ---------- 工具条 ---------- */
+
+.pv__tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--nm-hair);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-control));
+}
+
+.pv__group {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pv__group + .pv__group {
+  padding-left: 10px;
+  border-left: 1px solid var(--nm-hair);
+}
+
+.pv__spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.pv__swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--nm-hair);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--nm-flat);
+  transition: transform var(--nm-t-fast) var(--nm-ease), box-shadow var(--nm-t-fast) var(--nm-ease);
+}
+
+.pv__swatch:hover {
+  transform: scale(1.1);
+}
+
+.pv__swatch.is-active {
+  box-shadow: 0 0 0 2px var(--nm-bg), 0 0 0 4px currentColor;
+  color: var(--nm-accent);
+}
+
+.pv__zoom {
+  min-width: 58px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--nm-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pv__zoom:hover {
+  color: var(--nm-text-strong);
+}
+
+/* ---------- 画布 ---------- */
+
+.pv__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: auto;
+  padding: 14px;
+  background: color-mix(in srgb, var(--nm-bg-deep) 55%, transparent);
+}
+
+/*
+  用 flex + auto margin 居中：图比窗口大时 auto margin 会退化成 0，
+  左边和上边不会被裁掉（justify-content: center 就会裁）。
+*/
+.pv__sheet {
+  position: relative;
+  flex: none;
+  margin: auto;
+  border-radius: var(--nm-r-sm);
+  box-shadow: var(--card-shadow);
+  background-color: #fff;
+  background-image: conic-gradient(
+    rgba(0, 0, 0, 0.06) 25%,
+    transparent 0 50%,
+    rgba(0, 0, 0, 0.06) 0 75%,
+    transparent 0
+  );
+  background-size: 18px 18px;
+}
+
+.pv__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pv__ink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  touch-action: none;
+}
+
+/* ---------- 底部提示 ---------- */
+
+.pv__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--nm-hair);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-control));
+  color: var(--nm-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+/* ---------- 载荷丢失时的兜底 ---------- */
+
+.pv--empty {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px;
+  text-align: center;
+}
+
+.pv__empty-title {
+  margin: 0;
+  color: var(--nm-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pv__empty-hint {
+  margin: 0 0 12px;
+  color: var(--nm-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 620px) {
+  .pv__foot {
+    display: none;
+  }
+
+  .pv__tools {
+    gap: 6px;
+    padding: 8px;
+  }
+}

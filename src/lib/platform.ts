@@ -12,8 +12,11 @@ type DragDropEvent =
 type AppWindow = {
   minimize: () => Promise<void>
   close: () => Promise<void>
+  toggleMaximize: () => Promise<void>
+  isMaximized: () => Promise<boolean>
   setAlwaysOnTop: (value: boolean) => Promise<void>
   setEffects?: (effects: unknown) => Promise<void>
+  onResized?: (handler: () => void) => Promise<() => void>
   onDragDropEvent?: (handler: (event: { payload: DragDropEvent }) => void) => Promise<() => void>
 }
 
@@ -76,6 +79,43 @@ export function minimizeWindow(): Promise<boolean> {
 
 export function closeWindow(): Promise<boolean> {
   return run((win) => win.close())
+}
+
+export function toggleMaximizeWindow(): Promise<boolean> {
+  return run((win) => win.toggleMaximize())
+}
+
+/** 订阅窗口最大化状态，用来切换“最大化 / 还原”的图标。 */
+export function observeMaximized(onChange: (value: boolean) => void): () => void {
+  let dispose: (() => void) | null = null
+  let cancelled = false
+
+  void resolveWindow().then(async (win) => {
+    if (!win || typeof win.onResized !== 'function') return
+    const sync = async () => {
+      try {
+        onChange(await win.isMaximized())
+      } catch {
+        /* 拿不到就保持原状 */
+      }
+    }
+    try {
+      const off = await win.onResized(() => void sync())
+      if (cancelled) {
+        off()
+        return
+      }
+      dispose = off
+      void sync()
+    } catch {
+      dispose = null
+    }
+  })
+
+  return () => {
+    cancelled = true
+    if (dispose) dispose()
+  }
 }
 
 export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
@@ -158,4 +198,66 @@ export function watchNativeDrop(handler: (drop: NativeDrop) => void): () => void
 export function toFileHref(path: string): string {
   const normalized = path.replace(/\\/g, '/')
   return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`
+}
+
+/**
+ * 打开图片预览窗口。
+ * 桌面端开一个真正的 Tauri 窗口（和主面板互不干扰），浏览器端开一个弹出窗口。
+ * onClosed 在主面板需要知道“预览还开着没有”时用到（比如决定要不要淡化面板）。
+ */
+export async function openPreviewWindow(
+  payloadId: string,
+  title: string,
+  onClosed?: () => void,
+): Promise<boolean> {
+  const url = `index.html?preview=${encodeURIComponent(payloadId)}`
+  if (!isDesktop) {
+    try {
+      const popup = window.open(url, `nemu-preview-${payloadId}`, 'popup=yes,width=1000,height=760')
+      if (!popup) return false
+      if (onClosed) {
+        const timer = window.setInterval(() => {
+          if (!popup.closed) return
+          window.clearInterval(timer)
+          onClosed()
+        }, 600)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
+  try {
+    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+    const win = new WebviewWindow(`preview-${payloadId}`, {
+      url,
+      title,
+      width: 1000,
+      height: 760,
+      minWidth: 420,
+      minHeight: 320,
+      resizable: true,
+      maximizable: true,
+      decorations: false,
+      transparent: true,
+      shadow: true,
+      alwaysOnTop: true,
+      center: true,
+      dragDropEnabled: false,
+    })
+    return await new Promise<boolean>((resolve) => {
+      const timer = window.setTimeout(() => resolve(true), 4000)
+      const settle = (ok: boolean) => {
+        window.clearTimeout(timer)
+        resolve(ok)
+      }
+      void win.once('tauri://created', () => {
+        if (onClosed) void win.once('tauri://destroyed', () => onClosed())
+        settle(true)
+      })
+      void win.once('tauri://error', () => settle(false))
+    })
+  } catch {
+    return false
+  }
 }

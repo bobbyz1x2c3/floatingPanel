@@ -89,9 +89,11 @@ export interface ZoneSize {
 
 /** 四象限随窗口自适应：每格占可视区的一半，但不小于最小值。 */
 export function zoneSizeFor(viewportWidth: number, viewportHeight: number): ZoneSize {
+  // 用 floor 而不是 round：两格加起来必须小于等于可视区，
+  // 否则画布会比可视区宽出 1px，凭空多出一条横向滚动条。
   return {
-    width: Math.max(ZONE_MIN_WIDTH, Math.round(viewportWidth / 2)),
-    height: Math.max(ZONE_MIN_HEIGHT, Math.round(viewportHeight / 2)),
+    width: Math.max(ZONE_MIN_WIDTH, Math.floor(viewportWidth / 2)),
+    height: Math.max(ZONE_MIN_HEIGHT, Math.floor(viewportHeight / 2)),
   }
 }
 
