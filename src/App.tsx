@@ -10,6 +10,7 @@ import {
 import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
 import { SettingsDrawer } from './components/SettingsDrawer'
+import { Spectrum } from './components/Spectrum'
 import { TopBar } from './components/TopBar'
 import {
   MAX_ATTACHMENTS,
@@ -30,6 +31,9 @@ import {
 } from './lib/platform'
 import type { NativeDrop } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
+import { startAudio, stopAudio } from './lib/audio'
+import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
+import type { UpdateState } from './lib/update'
 import {
   boardFileStamp,
   parseBoardFile,
@@ -50,6 +54,9 @@ const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
 const NEW_CARD_OFFSET_X = 46
 const NEW_CARD_OFFSET_Y = 22
+/** 提示条停留时间，以及淡出动画给多长。 */
+const TOAST_HOLD = 2400
+const TOAST_OUT = 200
 
 /** 四象限的可用区域 = .board 的内容盒（扣掉内边距）。 */
 function measureBoardViewport(element: HTMLElement) {
@@ -86,12 +93,16 @@ export function App() {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [toastLeaving, setToastLeaving] = useState(false)
   /** 开着的图片预览窗数量：预览窗抢焦点时不应该把主面板当成“失焦”淡化掉。 */
   const [previewOpen, setPreviewOpen] = useState(0)
+  const [version, setVersion] = useState('—')
+  const [update, setUpdate] = useState<UpdateState>(IDLE_UPDATE)
   const [now, setNow] = useState(() => Date.now())
   const [systemDark, setSystemDark] = useState(false)
   const [windowFocused, setWindowFocused] = useState(true)
   const toastTimer = useRef<number | null>(null)
+  const toastLeaveTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
   const storageWarned = useRef(false)
   /** 状态文件：最近一次同步过的内容和修改时间，用来和 CLI 对表。 */
@@ -138,8 +149,15 @@ export function App() {
 
   const notify = useCallback((message: string) => {
     setToast(message)
+    setToastLeaving(false)
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2400)
+    if (toastLeaveTimer.current !== null) window.clearTimeout(toastLeaveTimer.current)
+    // 先播淡出，再真正移除，不然提示条会「啪」地消失。
+    toastLeaveTimer.current = window.setTimeout(() => setToastLeaving(true), TOAST_HOLD - TOAST_OUT)
+    toastTimer.current = window.setTimeout(() => {
+      setToast(null)
+      setToastLeaving(false)
+    }, TOAST_HOLD)
   }, [])
 
   const resolvedTheme: 'light' | 'dark' =
@@ -276,6 +294,7 @@ export function App() {
   useEffect(() => {
     return () => {
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+      if (toastLeaveTimer.current !== null) window.clearTimeout(toastLeaveTimer.current)
       if (confirmTimer.current !== null) window.clearTimeout(confirmTimer.current)
     }
   }, [])
@@ -473,6 +492,21 @@ export function App() {
     dispatch({ type: 'settings', patch })
   }, [])
 
+  // 音频响应：开了就让 Rust 那边开始抓系统声音，关掉（或离开）就停。
+  useEffect(() => {
+    if (!isDesktop || !settings.audioReactive) return
+    let cancelled = false
+    void startAudio().then((ok) => {
+      if (cancelled || ok) return
+      patchSettings({ audioReactive: false })
+      notify('没打开系统音频（可能被占用或系统不支持），音频响应已关闭')
+    })
+    return () => {
+      cancelled = true
+      void stopAudio()
+    }
+  }, [settings.audioReactive, patchSettings, notify])
+
   const cycleTheme = useCallback(() => {
     const order = ['light', 'dark', 'system'] as const
     const next = order[(order.indexOf(settings.theme) + 1) % order.length]
@@ -523,6 +557,45 @@ export function App() {
     })
   }, [])
 
+  const requestUpdateCheck = useCallback(
+    async (manual: boolean) => {
+      if (!isDesktop) return
+      setUpdate({ status: 'checking' })
+      const result = await runUpdateCheck()
+      setUpdate(result)
+      if (result.status === 'available') {
+        notify(`发现新版本 ${result.version}，可在设置里下载安装`)
+      } else if (manual && result.status === 'latest') {
+        notify('已经是最新版本')
+      } else if (manual && result.status === 'error') {
+        notify(`检查更新失败：${result.message}`)
+      }
+    },
+    [notify],
+  )
+
+  const requestInstallUpdate = useCallback(async () => {
+    setUpdate({ status: 'installing', percent: 0 })
+    const ok = await installUpdate((percent) => setUpdate({ status: 'installing', percent }))
+    if (!ok) {
+      setUpdate({ status: 'error', message: '安装失败，请到 Release 页面手动下载' })
+      notify('更新安装失败')
+    }
+  }, [notify])
+
+  // 记一下版本号，并（在开着自动检查时）启动几秒后问一次更新。
+  useEffect(() => {
+    if (!isDesktop) return
+    void appVersion().then(setVersion)
+  }, [])
+
+  useEffect(() => {
+    if (!isDesktop || !settings.autoCheckUpdate) return
+    const timer = window.setTimeout(() => void requestUpdateCheck(false), 4000)
+    return () => window.clearTimeout(timer)
+    // 只在启动时问一次，之后由设置里的按钮手动触发。
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -553,8 +626,13 @@ export function App() {
     settings.dimOnBlur && !windowFocused && previewOpen === 0 && !settingsOpen && !archiveOpen
 
   return (
-    <div className={`shell${isDimmed ? ' is-dimmed' : ''}`}>
+    <div
+      className={`shell${isDimmed ? ' is-dimmed' : ''}${settings.audioReactive ? ' is-audio' : ''}`}
+    >
       <div className="panel">
+        {/* 频谱垫在所有卡片下面，是面板背景的一部分，不是浮层。 */}
+        {settings.audioReactive ? <Spectrum label="系统音频" /> : null}
+
         <TopBar
           isDesktop={isDesktop}
           platformLabel={platformLabel}
@@ -645,12 +723,16 @@ export function App() {
               dispatch({ type: 'restoreExamples', zone: zoneRef.current })
               notify('已恢复示例卡片')
             }}
+            version={version}
+            update={update}
+            onCheckUpdate={() => void requestUpdateCheck(true)}
+            onInstallUpdate={() => void requestInstallUpdate()}
             onClose={() => setSettingsOpen(false)}
           />
         ) : null}
 
         {toast ? (
-          <div className="toast" role="status">
+          <div className={`toast${toastLeaving ? ' is-leaving' : ''}`} role="status">
             {toast}
           </div>
         ) : null}

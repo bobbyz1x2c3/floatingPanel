@@ -334,6 +334,44 @@ body.is-desktop .shell::before {
   transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease),
     opacity var(--nm-t) var(--nm-ease);
   will-change: transform;
+  /*
+    新卡片入场：用 translate / scale 这两个独立属性而不是 transform，
+    这样和拖动时的 transform: scale() 不会互相覆盖。
+    延迟由 Board 按顺序给，一叠卡片会像翻牌一样依次落下来。
+  */
+  animation: card-in 300ms var(--nm-ease-out) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+/* 删除卡片：先缩一下再消失，别让卡片凭空蒸发。 */
+.card.is-removing {
+  pointer-events: none;
+  animation: card-out 220ms var(--nm-ease-out) forwards;
+}
+
+@keyframes card-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.92;
+    translate: 0 6px;
+  }
 }
 
 .card.is-front {
@@ -391,6 +429,8 @@ html[data-gesture] .card__title {
   border-radius: 50%;
   background: var(--nm-accent);
   box-shadow: 0 0 0 3px var(--nm-accent-soft);
+  /* 卡片跨过分界线换象限时，强调色是渐变过去的，不是啪一下跳。 */
+  transition: background-color 340ms var(--nm-ease), box-shadow 340ms var(--nm-ease);
 }
 
 .card__title {
@@ -877,6 +917,19 @@ html[data-gesture] .card__title {
 .card.is-drop {
   outline: 2px dashed var(--nm-accent);
   outline-offset: 3px;
+  animation: drop-pulse 1s ease-in-out infinite;
+}
+
+@keyframes drop-pulse {
+  0%,
+  100% {
+    outline-offset: 3px;
+    outline-color: var(--nm-accent);
+  }
+  50% {
+    outline-offset: 6px;
+    outline-color: var(--nm-accent-soft);
+  }
 }
 
 .card.is-archiving {
@@ -931,6 +984,7 @@ html[data-gesture] .card__title {
   gap: 16px;
   text-align: center;
   pointer-events: none;
+  animation: fade-in 340ms var(--nm-ease-out) both;
 }
 
 .empty__badge {
@@ -974,6 +1028,8 @@ html[data-gesture] .card__title {
   border-radius: var(--nm-r-lg);
   background: rgb(var(--glass-rgb) / var(--glass-fill-float));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  animation: drawer-in 240ms var(--nm-ease-out) both;
+  transform-origin: top right;
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
@@ -1043,6 +1099,12 @@ html[data-gesture] .card__title {
 .drawer__actions {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawer__inline {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -1222,6 +1284,89 @@ html[data-gesture] .card__title {
     transform: translate(-50%, 0);
   }
 }
+
+.toast.is-leaving {
+  animation: toast-out 200ms var(--nm-ease-out) forwards;
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- 音频响应频谱（面板背景的一部分） ---------- */
+
+/*
+  贴在面板底部、垫在卡片下面的一层：z-index 0 比 .board 低，
+  跟着面板一起圆角裁切，卡片、抽屉、提示条都在它上面。
+  上缘用 mask 淡出，免得柱子把卡片衬得发花。
+*/
+.spectrum {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: clamp(70px, 20%, 150px);
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+  animation: fade-in 420ms var(--nm-ease-out) both;
+  -webkit-mask-image: linear-gradient(to top, #000 34%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 34%, transparent 100%);
+}
+
+/* 底部一层跟着响度呼吸的强调色光晕，声音大就亮一点。 */
+.spectrum::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    62% 130% at 50% 100%,
+    color-mix(in srgb, var(--nm-accent) calc(5% + var(--audio-level, 0) * 26%), transparent),
+    transparent 72%
+  );
+}
+
+.spectrum__bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+  padding: 0 12px;
+}
+
+.spectrum__bar {
+  flex: 1;
+  min-width: 1px;
+  height: 100%;
+  border-radius: 3px 3px 0 0;
+  transform: scaleY(0.02);
+  transform-origin: bottom;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--nm-accent) 85%, transparent) 0%,
+    color-mix(in srgb, var(--nm-accent) 32%, transparent) 100%
+  );
+  will-change: transform, opacity;
+}
+
 
 .sr-only {
   position: absolute;

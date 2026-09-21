@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ClipboardEvent as ReactClipboardEvent,
+  CSSProperties,
   DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
@@ -47,6 +48,8 @@ export interface CardViewProps {
   onCompleteSound: () => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
+  /** 在列表里的序号：用来给入场动效排队，一叠卡片依次落下来。 */
+  enterIndex?: number
 }
 
 interface DragOrigin {
@@ -66,6 +69,8 @@ const RESIZE_EDGES: ResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
 /** 归档动效时长，和 app.css 里的 card-archive 动画保持一致。 */
 const ARCHIVE_ANIMATION = 460
+/** 删除动效时长，和 app.css 里的 card-out 保持一致。 */
+const REMOVE_ANIMATION = 220
 
 function hasOpenModifier(event: { ctrlKey: boolean; metaKey: boolean }): boolean {
   return event.ctrlKey || event.metaKey
@@ -87,6 +92,7 @@ export function CardView({
   onCompleteSound,
   onPreview,
   onNotify,
+  enterIndex = 0,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
   const edgeRef = useRef<ResizeEdge | null>(null)
@@ -97,6 +103,7 @@ export function CardView({
   )
   const [gesture, setGesture] = useState<Gesture>('idle')
   const [archiving, setArchiving] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [dropActive, setDropActive] = useState(false)
   const latest = useRef({ onChange, snap, card, zone })
 
@@ -296,6 +303,13 @@ export function CardView({
     archiveTimer.current = window.setTimeout(() => onArchive(), ARCHIVE_ANIMATION)
   }
 
+  /** 删除也先播一下缩小淡出，不然卡片会凭空消失。 */
+  const handleRemove = () => {
+    if (removing || archiving) return
+    setRemoving(true)
+    archiveTimer.current = window.setTimeout(() => onRemove(), REMOVE_ANIMATION)
+  }
+
   const links = useMemo(() => listLinks(card.body), [card.body])
 
   const openHref = (href: string) => {
@@ -337,6 +351,7 @@ export function CardView({
     dimmed && 'is-dimmed',
     matched && 'is-match',
     archiving && 'is-archiving',
+    removing && 'is-removing',
     (dropActive || dropTarget) && 'is-drop',
   ]
     .filter(Boolean)
@@ -354,7 +369,8 @@ export function CardView({
         width: card.width,
         height: card.collapsed ? undefined : card.height,
         zIndex: card.z,
-      }}
+        ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
+      } as CSSProperties}
       onPointerDown={onBringToFront}
       onPaste={handlePaste}
       onDragOver={handleDragOver}
@@ -379,7 +395,7 @@ export function CardView({
             variant="danger"
             title="删除卡片"
             aria-label="删除卡片"
-            onClick={onRemove}
+            onClick={handleRemove}
           >
             <IconTrash size={16} />
           </NeuButton>

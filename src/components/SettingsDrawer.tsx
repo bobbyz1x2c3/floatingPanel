@@ -3,6 +3,7 @@ import { IconClose, IconEraser, IconGrid, IconRestore } from './icons'
 import { formatPercent } from '../lib/format'
 import { TONES, TONE_LABELS } from '../lib/types'
 import type { CardTone, Settings, ThemeMode } from '../lib/types'
+import type { UpdateState } from '../lib/update'
 
 export interface SettingsDrawerProps {
   settings: Settings
@@ -12,7 +13,30 @@ export interface SettingsDrawerProps {
   onCollapseAll: () => void
   onClear: () => void
   onRestore: () => void
+  version: string
+  update: UpdateState
+  onCheckUpdate: () => void
+  onInstallUpdate: () => void
   onClose: () => void
+}
+
+function updateSummary(state: UpdateState, version: string): string {
+  switch (state.status) {
+    case 'idle':
+      return `当前版本 ${version}`
+    case 'checking':
+      return '正在检查…'
+    case 'latest':
+      return `已是最新（${version}）`
+    case 'available':
+      return `发现新版本 ${state.version}`
+    case 'installing':
+      return `正在下载安装 ${state.percent}%`
+    case 'error':
+      return `检查失败：${state.message}`
+    default:
+      return `当前版本 ${version}`
+  }
 }
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -29,6 +53,10 @@ export function SettingsDrawer({
   onCollapseAll,
   onClear,
   onRestore,
+  version,
+  update,
+  onCheckUpdate,
+  onInstallUpdate,
   onClose,
 }: SettingsDrawerProps) {
   return (
@@ -134,6 +162,17 @@ export function SettingsDrawer({
             onChange={(value) => onPatch({ soundOnComplete: value })}
           />
         </DrawerRow>
+        <DrawerRow
+          title="音频响应"
+          hint={isDesktop ? '跟着电脑正在播放的声音做频谱动效' : '仅桌面端可用'}
+        >
+          <NeuSwitch
+            label="音频响应"
+            checked={settings.audioReactive}
+            disabled={!isDesktop}
+            onChange={(value) => onPatch({ audioReactive: value })}
+          />
+        </DrawerRow>
       </div>
 
       <hr className="nm-divider" />
@@ -167,6 +206,37 @@ export function SettingsDrawer({
             label="失焦自动淡化"
             checked={settings.dimOnBlur}
             onChange={(value) => onPatch({ dimOnBlur: value })}
+          />
+        </DrawerRow>
+      </div>
+
+      <hr className="nm-divider" />
+
+      <div className="drawer__group">
+        <span className="nm-label">更新</span>
+        <DrawerRow title="版本" hint={updateSummary(update, version)}>
+          <div className="drawer__inline">
+            {update.status === 'available' ? (
+              <NeuButton size="sm" variant="primary" onClick={onInstallUpdate}>
+                下载并安装
+              </NeuButton>
+            ) : (
+              <NeuButton
+                size="sm"
+                disabled={!isDesktop || update.status === 'checking' || update.status === 'installing'}
+                onClick={onCheckUpdate}
+              >
+                {update.status === 'checking' ? '检查中…' : '检查更新'}
+              </NeuButton>
+            )}
+          </div>
+        </DrawerRow>
+        <DrawerRow title="自动检查更新" hint="启动后自动问一次，有新版本会提示">
+          <NeuSwitch
+            label="自动检查更新"
+            checked={settings.autoCheckUpdate}
+            disabled={!isDesktop}
+            onChange={(value) => onPatch({ autoCheckUpdate: value })}
           />
         </DrawerRow>
       </div>

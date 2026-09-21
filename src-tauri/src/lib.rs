@@ -1,6 +1,7 @@
 use base64::Engine;
 
 pub mod board;
+pub mod audio;
 
 use serde::Serialize;
 
@@ -82,9 +83,40 @@ fn board_file_stamp() -> u64 {
     board::mtime_millis()
 }
 
+/* ---------- 音频响应（系统播放的声音） ---------- */
+
+#[tauri::command]
+fn audio_available() -> bool {
+    audio::available()
+}
+
+#[tauri::command]
+fn audio_start(app: tauri::AppHandle, state: tauri::State<'_, audio::AudioState>) -> Result<(), String> {
+    let mut slot = state.0.lock().map_err(|error| error.to_string())?;
+    if slot.is_some() {
+        return Ok(());
+    }
+    let capture = audio::start(app)?;
+    *slot = Some(capture);
+    Ok(())
+}
+
+#[tauri::command]
+fn audio_stop(state: tauri::State<'_, audio::AudioState>) -> Result<(), String> {
+    let mut slot = state.0.lock().map_err(|error| error.to_string())?;
+    if let Some(capture) = slot.take() {
+        capture.stop();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(audio::AudioState::default())
+        // 自动更新：检查 + 下载 + 安装（配置见 tauri.conf.json 的 plugins.updater）。
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             read_file_data_url,
             open_target,
@@ -92,7 +124,10 @@ pub fn run() {
             board_path_string,
             read_board_file,
             write_board_file,
-            board_file_stamp
+            board_file_stamp,
+            audio_available,
+            audio_start,
+            audio_stop
         ])
         .run(tauri::generate_context!())
         .expect("failed to start NemuFloat");

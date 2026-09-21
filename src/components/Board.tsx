@@ -142,10 +142,11 @@ export function Board({
           刻意按 state 里的原始顺序渲染：z-index 已经决定了叠放层次，
           如果按 z 排序，focus 时 React 会移动卡片节点，pointerdown/click 就会被拆散。
         */}
-        {cards.map((card) => (
+        {cards.map((card, index) => (
           <CardView
             key={card.id}
             card={card}
+            enterIndex={index}
             active={activeId === card.id}
             dimmed={filtered && !matchesQuery(card, query)}
             matched={filtered && matchesQuery(card, query)}

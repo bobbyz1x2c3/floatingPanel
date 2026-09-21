@@ -47,6 +47,10 @@ export interface Settings {
   dimOnBlur: boolean
   blurBehind: boolean
   soundOnComplete: boolean
+  /** 跟着电脑播放的声音做频谱动效（桌面端）。 */
+  audioReactive: boolean
+  /** 启动后自动检查更新。 */
+  autoCheckUpdate: boolean
 }
 
 export interface BoardState {
