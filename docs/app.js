@@ -145,10 +145,20 @@ function renderLatest(release, platform) {
 
   const actions = document.getElementById('latest-actions');
   if (actions) {
-    // 当前系统的包排在最前面，剩下的按原顺序跟上来。
-    const ordered = [...release.downloads].sort(
-      (a, b) => (b.platform === platform ? 1 : 0) - (a.platform === platform ? 1 : 0),
-    );
+    /*
+      排序：先按「是不是当前系统」，同一平台里再把最好装的排前面
+      （Windows 的 setup.exe 优先于 msi，macOS 的 dmg 优先于 pkg，Linux 的 AppImage 优先于 deb/rpm），
+      这样第一个按钮永远是这个访客最该点的那个。
+    */
+    const rank = (asset) => {
+      let score = asset.platform === platform ? 0 : 100;
+      const name = asset.name.toLowerCase();
+      if (name.endsWith('-setup.exe')) score += 0;
+      else if (name.endsWith('.dmg') || name.endsWith('.appimage')) score += 1;
+      else score += 2;
+      return score;
+    };
+    const ordered = [...release.downloads].sort((a, b) => rank(a) - rank(b));
     const primary = ordered[0];
     actions.innerHTML = '';
     for (const asset of ordered.slice(0, 6)) {
