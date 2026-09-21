@@ -145,9 +145,13 @@ function renderLatest(release, platform) {
 
   const actions = document.getElementById('latest-actions');
   if (actions) {
-    const primary = release.downloads.find((asset) => asset.platform === platform) ?? release.downloads[0];
+    // 当前系统的包排在最前面，剩下的按原顺序跟上来。
+    const ordered = [...release.downloads].sort(
+      (a, b) => (b.platform === platform ? 1 : 0) - (a.platform === platform ? 1 : 0),
+    );
+    const primary = ordered[0];
     actions.innerHTML = '';
-    for (const asset of release.downloads.slice(0, 4)) {
+    for (const asset of ordered.slice(0, 6)) {
       const link = document.createElement('a');
       link.className = asset === primary ? 'nm nm--primary' : 'nm';
       link.href = asset.url;
@@ -232,7 +236,12 @@ function renderList(releases, platform) {
 /* ---------- 取数据 ---------- */
 
 async function loadReleases() {
-  const candidates = ['./releases.json', `https://api.github.com/repos/${REPO}/releases?per_page=20`];
+  /*
+    先问 API 拿最新数据（仓库公开后匿名就能读），失败再退回同目录的 releases.json。
+    releases.json 是部署时用 token 生成的快照：私有仓库或者 API 被限流时靠它兜底，
+    但它可能在打包还没传完的时候就生成了，所以永远优先用实时的那份。
+  */
+  const candidates = [`https://api.github.com/repos/${REPO}/releases?per_page=20`, './releases.json'];
   for (const url of candidates) {
     try {
       const response = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
