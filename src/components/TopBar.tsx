@@ -80,10 +80,14 @@ export function TopBar({
 
   useEffect(() => observeMaximized(setMaximized), [])
 
+  /*
+    drag-region 用 "deep"：整条菜单栏里凡是不落在按钮 / 输入框上的地方都能拖动窗口。
+    标成 bare 的只对元素自己生效，留白的地方照样拖不动，所以这里交给容器。
+  */
   return (
-    <header className="topbar" data-tauri-drag-region>
+    <header className="topbar" data-tauri-drag-region="deep">
       <div className="topbar__side topbar__side--left">
-        <div className="topbar__brand" data-tauri-drag-region title={summary}>
+        <div className="topbar__brand" title={summary}>
           <span className="brand-mark" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect
@@ -104,9 +108,7 @@ export function TopBar({
               />
             </svg>
           </span>
-          <h1 className="topbar__title" data-tauri-drag-region>
-            悬浮卡片
-          </h1>
+          <h1 className="topbar__title">悬浮卡片</h1>
         </div>
       </div>
 

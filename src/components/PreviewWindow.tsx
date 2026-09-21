@@ -13,6 +13,8 @@ import { loadState } from '../lib/storage'
 import { NeuButton } from './controls'
 import {
   IconArrowLine,
+  IconChevronDown,
+  IconChevronUp,
   IconCircle,
   IconClose,
   IconEraser,
@@ -153,6 +155,8 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
   const [count, setCount] = useState(0)
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
+  /** 标注工具条可以收起：收起后连左键也变成平移，就是一块纯看图。 */
+  const [toolsOpen, setToolsOpen] = useState(true)
 
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -164,6 +168,7 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
   const toolRef = useRef<Tool>('pencil')
   const colorRef = useRef(COLORS[0])
   const spaceRef = useRef(false)
+  const toolsRef = useRef(true)
   const zoomAnchor = useRef<{ ix: number; iy: number; vx: number; vy: number } | null>(null)
   const fittedRef = useRef(false)
 
@@ -172,6 +177,7 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
   toolRef.current = tool
   colorRef.current = color
   spaceRef.current = spaceDown
+  toolsRef.current = toolsOpen
 
   const view: Size | null = natural
     ? { w: Math.max(1, Math.round(natural.w * zoom)), h: Math.max(1, Math.round(natural.h * zoom)) }
@@ -320,7 +326,15 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
     const size = naturalRef.current
     if (!size) return
     const canvas = event.currentTarget
-    const wantsPan = event.button === 1 || spaceRef.current
+    /*
+      平移：右键、中键、空格 + 左键都可以。
+      工具条收起时左键也让给平移——那时候是「纯看图」，不该再往图上画东西。
+    */
+    const wantsPan =
+      event.button === 1 ||
+      event.button === 2 ||
+      spaceRef.current ||
+      (event.button === 0 && !toolsRef.current)
     canvas.setPointerCapture(event.pointerId)
     if (wantsPan) {
       const stage = stageRef.current
@@ -392,10 +406,14 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
   }
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey && !event.metaKey) return
+    /*
+      滚轮直接缩放（以光标为中心）。按住 Shift 时不拦，
+      留给滚动条自己去滚——放大之后想平移还有右键 / 中键 / 空格拖拽。
+    */
+    if (event.shiftKey || !naturalRef.current) return
     event.preventDefault()
     const stage = stageRef.current
-    if (!stage || !naturalRef.current) return
+    if (!stage) return
     const rect = stage.getBoundingClientRect()
     const vx = event.clientX - rect.left
     const vy = event.clientY - rect.top
@@ -424,18 +442,22 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
   }
 
   return (
-    <div className={`pv${panning ? ' is-panning' : ''}`}>
-      <header className="pv__bar" data-tauri-drag-region>
-        <span className="pv__dot" data-tauri-drag-region aria-hidden="true" />
-        <span className="pv__title" data-tauri-drag-region title={title}>
+    <div
+      className={`pv${panning ? ' is-panning' : ''}`}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      {/* 整条标题栏都是拖动区：文件名留空时左侧同样能拖着窗口走。 */}
+      <header className="pv__bar" data-tauri-drag-region="deep">
+        <span className="pv__dot" aria-hidden="true" />
+        <span className="pv__title" title={title}>
           {title}
         </span>
         {natural ? (
-          <span className="pv__meta" data-tauri-drag-region>
+          <span className="pv__meta">
             {natural.w} × {natural.h}
           </span>
         ) : null}
-        <span className="pv__grip" data-tauri-drag-region />
+        <span className="pv__grip" />
         <NeuButton
           iconOnly
           size="sm"
@@ -483,60 +505,71 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
         </NeuButton>
       </header>
 
-      <div className="pv__tools">
-        <div className="pv__group" role="group" aria-label="画图工具">
-          {TOOLS.map(({ key, label, Icon }) => (
+      <div className={`pv__tools${toolsOpen ? '' : ' is-collapsed'}`}>
+        <NeuButton
+          size="sm"
+          className="pv__toggle"
+          aria-expanded={toolsOpen}
+          aria-controls="pv-tools"
+          aria-label={toolsOpen ? '收起标注工具' : '展开标注工具'}
+          title={toolsOpen ? '收起标注工具（收起后左键也用来平移）' : '展开标注工具'}
+          onClick={() => setToolsOpen((open) => !open)}
+        >
+          {toolsOpen ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
+          <span className="pv__toggle-label">{toolsOpen ? '收起标注' : '标注工具'}</span>
+        </NeuButton>
+
+        {toolsOpen ? (
+          <div className="pv__group" id="pv-tools" role="group" aria-label="标注工具">
+            {TOOLS.map(({ key, label, Icon }) => (
+              <NeuButton
+                key={key}
+                iconOnly
+                size="sm"
+                active={tool === key}
+                aria-label={label}
+                title={label}
+                onClick={() => setTool(key)}
+              >
+                <Icon size={16} />
+              </NeuButton>
+            ))}
+            <span className="pv__rule" aria-hidden="true" />
+            {COLORS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`pv__swatch${color === value ? ' is-active' : ''}`}
+                style={{ background: value }}
+                aria-label={`颜色 ${value}`}
+                aria-pressed={color === value}
+                title="标注颜色"
+                onClick={() => setColor(value)}
+              />
+            ))}
+            <span className="pv__rule" aria-hidden="true" />
             <NeuButton
-              key={key}
               iconOnly
               size="sm"
-              active={tool === key}
-              aria-label={label}
-              title={label}
-              onClick={() => setTool(key)}
+              disabled={count === 0}
+              aria-label="撤销上一笔"
+              title="撤销上一笔（Ctrl+Z）"
+              onClick={undo}
             >
-              <Icon size={16} />
+              <IconUndo size={16} />
             </NeuButton>
-          ))}
-        </div>
-
-        <div className="pv__group" role="group" aria-label="颜色">
-          {COLORS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={`pv__swatch${color === value ? ' is-active' : ''}`}
-              style={{ background: value }}
-              aria-label={`颜色 ${value}`}
-              aria-pressed={color === value}
-              title="标注颜色"
-              onClick={() => setColor(value)}
-            />
-          ))}
-        </div>
-
-        <div className="pv__group">
-          <NeuButton
-            iconOnly
-            size="sm"
-            disabled={count === 0}
-            aria-label="撤销上一笔"
-            title="撤销上一笔（Ctrl+Z）"
-            onClick={undo}
-          >
-            <IconUndo size={16} />
-          </NeuButton>
-          <NeuButton
-            iconOnly
-            size="sm"
-            disabled={count === 0}
-            aria-label="清空标注"
-            title="清空全部标注"
-            onClick={clearAll}
-          >
-            <IconEraser size={16} />
-          </NeuButton>
-        </div>
+            <NeuButton
+              iconOnly
+              size="sm"
+              disabled={count === 0}
+              aria-label="清空标注"
+              title="清空全部标注"
+              onClick={clearAll}
+            >
+              <IconEraser size={16} />
+            </NeuButton>
+          </div>
+        ) : null}
 
         <span className="pv__spacer" />
 
@@ -599,7 +632,7 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
           <canvas
             ref={canvasRef}
             className="pv__ink"
-            style={{ cursor: spaceDown ? 'grab' : 'crosshair' }}
+            style={{ cursor: spaceDown || !toolsOpen ? 'grab' : 'crosshair' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -609,9 +642,13 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
       </div>
 
       <footer className="pv__foot">
-        <span>{TOOLS.find((item) => item.key === tool)?.label ?? ''} · 拖动左键画标注</span>
+        <span>
+          {toolsOpen
+            ? `${TOOLS.find((item) => item.key === tool)?.label ?? ''} · 拖动左键画标注`
+            : '纯看图 · 按住左键拖动即可平移'}
+        </span>
         <span className="pv__spacer" />
-        <span>滚轮滚动 · Ctrl+滚轮缩放 · 中键或空格拖拽平移 · 标题栏拖动窗口</span>
+        <span>滚轮缩放 · 右键 / 中键 / 空格拖拽平移 · 标题栏拖动窗口</span>
       </footer>
     </div>
   )

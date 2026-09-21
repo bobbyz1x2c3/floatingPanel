@@ -94,6 +94,24 @@
   border-left: 1px solid var(--nm-hair);
 }
 
+/* 同一组图标之间的细分隔线（工具 / 颜色 / 撤销）。 */
+.pv__rule {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--nm-hair);
+}
+
+.pv__toggle-label {
+  white-space: nowrap;
+}
+
+.pv__tools.is-collapsed {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 .pv__spacer {
   flex: 1;
   min-width: 8px;
@@ -234,5 +252,9 @@
   .pv__tools {
     gap: 6px;
     padding: 8px;
+  }
+
+  .pv__toggle-label {
+    display: none;
   }
 }
