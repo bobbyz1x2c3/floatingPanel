@@ -227,15 +227,6 @@ export function IconSparkle(props: Omit<IconProps, 'children'>) {
   )
 }
 
-export function IconResize(props: Omit<IconProps, 'children'>) {
-  return (
-    <Icon {...props}>
-      <path d="M13.5 20h6.5v-6.5" />
-      <path d="M20 20l-6.8-6.8" />
-    </Icon>
-  )
-}
-
 export function IconEraser(props: Omit<IconProps, 'children'>) {
   return (
     <Icon {...props}>
