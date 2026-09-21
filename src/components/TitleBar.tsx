@@ -6,6 +6,7 @@ export interface TitleBarProps {
   platformLabel: string
   alwaysOnTop: boolean
   cardCount: number
+  archivedCount: number
   onToggleAlwaysOnTop: () => void
   onMinimize: () => void
   onClose: () => void
@@ -16,6 +17,7 @@ export function TitleBar({
   platformLabel,
   alwaysOnTop,
   cardCount,
+  archivedCount,
   onToggleAlwaysOnTop,
   onMinimize,
   onClose,
@@ -43,14 +45,12 @@ export function TitleBar({
             />
           </svg>
         </span>
-        <div className="brand-text" data-tauri-drag-region>
-          <h1 className="brand-text__title" data-tauri-drag-region>
-            悬浮卡片
-          </h1>
-          <p className="brand-text__meta" data-tauri-drag-region>
-            {platformLabel} · <span className="titlebar__meta-full">{cardCount} 张卡片</span>
-          </p>
-        </div>
+        <h1 className="brand-text__title" data-tauri-drag-region>
+          悬浮卡片
+        </h1>
+        <span className="brand-text__meta" data-tauri-drag-region>
+          {platformLabel} · {cardCount} 张卡片 · 已归档 {archivedCount}
+        </span>
       </div>
 
       <div className="titlebar__spacer" data-tauri-drag-region />
@@ -58,32 +58,35 @@ export function TitleBar({
       <div className="titlebar__tools">
         <NeuButton
           iconOnly
+          size="sm"
           active={alwaysOnTop}
           disabled={!isDesktop}
           aria-label="窗口置顶"
           title={isDesktop ? '窗口始终置顶' : '窗口置顶仅桌面端可用'}
           onClick={onToggleAlwaysOnTop}
         >
-          <IconPin size={17} />
+          <IconPin size={16} />
         </NeuButton>
         <NeuButton
           iconOnly
+          size="sm"
           disabled={!isDesktop}
           aria-label="最小化"
           title={isDesktop ? '最小化窗口' : '仅桌面端可用'}
           onClick={onMinimize}
         >
-          <IconMinus size={17} />
+          <IconMinus size={16} />
         </NeuButton>
         <NeuButton
           iconOnly
+          size="sm"
           variant="danger"
           disabled={!isDesktop}
           aria-label="关闭"
           title={isDesktop ? '关闭窗口' : '仅桌面端可用'}
           onClick={onClose}
         >
-          <IconClose size={17} />
+          <IconClose size={16} />
         </NeuButton>
       </div>
     </header>

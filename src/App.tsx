@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { TitleBar } from './components/TitleBar'
 import { Toolbar } from './components/Toolbar'
+import { NeuButton } from './components/controls'
+import { IconClose } from './components/icons'
+import {
+  MAX_ATTACHMENTS,
+  fileToAttachment,
+  mergeAttachments,
+  pathToAttachment,
+} from './lib/attachments'
 import {
   applyAlwaysOnTop,
   applyBlurBehind,
@@ -10,25 +19,39 @@ import {
   isDesktop,
   minimizeWindow,
   platformLabel,
+  watchNativeDrop,
 } from './lib/platform'
+import type { NativeDrop } from './lib/platform'
 import { clearState, loadState, saveState } from './lib/storage'
 import { boardReducer, createInitialState } from './lib/store'
-import type { CardData, Settings } from './lib/types'
+import { quadrantFromPoint } from './lib/types'
+import type { Attachment, CardData, Settings } from './lib/types'
 import './styles/tokens.css'
 import './styles/neumorphism.css'
 import './styles/app.css'
 
 const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
+const NEW_CARD_OFFSET_X = 46
+const NEW_CARD_OFFSET_Y = 22
 
 function resolveInitialState() {
   return loadState() ?? createInitialState()
+}
+
+function titleFromAttachment(attachment: Attachment | undefined): string {
+  if (!attachment) return '新卡片'
+  const trimmed = attachment.name.replace(/\.[^.]+$/, '').trim()
+  return trimmed || '新卡片'
 }
 
 export function App() {
   const [state, dispatch] = useReducer(boardReducer, null, resolveInitialState)
   const [query, setQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [preview, setPreview] = useState<Attachment | null>(null)
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -36,35 +59,49 @@ export function App() {
   const [windowFocused, setWindowFocused] = useState(true)
   const toastTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
+  const storageWarned = useRef(false)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const stateRef = useRef(state)
+  stateRef.current = state
 
-  const { cards, settings } = state
+  const { cards, archived, settings } = state
 
   const notify = useCallback((message: string) => {
     setToast(message)
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2200)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2400)
   }, [])
 
   const resolvedTheme: 'light' | 'dark' =
     settings.theme === 'system' ? (systemDark ? 'dark' : 'light') : settings.theme
 
   useEffect(() => {
-    const timer = window.setTimeout(() => saveState(state), PERSIST_DELAY)
+    const timer = window.setTimeout(() => {
+      if (saveState(state) || storageWarned.current) return
+      storageWarned.current = true
+      notify('本地存储快满了，最新的图片可能没有被保存')
+    }, PERSIST_DELAY)
     return () => window.clearTimeout(timer)
-  }, [state])
+  }, [state, notify])
 
   useEffect(() => {
     const handle = window.setInterval(() => setNow(Date.now()), TICK_INTERVAL)
     return () => window.clearInterval(handle)
   }, [])
 
+  // 旧存档（四象限之前）里的卡片位置没有象限含义，首次加载时自动归位一次。
   useEffect(() => {
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    setSystemDark(query.matches)
+    if (stateRef.current.version >= 2) return
+    dispatch({ type: 'arrange' })
+    notify('已把原有卡片按象限排布好')
+  }, [notify])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    setSystemDark(media.matches)
     const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches)
-    query.addEventListener('change', onChange)
-    return () => query.removeEventListener('change', onChange)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
   }, [])
 
   useEffect(() => {
@@ -106,28 +143,147 @@ export function App() {
     }
   }, [])
 
-  const addCard = useCallback(() => {
-    const offset = (cards.length % 6) * 26
-    dispatch({ type: 'add', x: 30 + offset, y: 26 + offset })
-    setQuery('')
-  }, [cards.length])
+  /** 把附件放进某张卡片；没有命中卡片时就在指定位置新建一张。 */
+  const applyAttachments = useCallback(
+    (cardId: string | null, items: Attachment[], point?: { x: number; y: number }) => {
+      if (items.length === 0) return
+      const card = cardId
+        ? stateRef.current.cards.find((item) => item.id === cardId)
+        : undefined
 
-  const addCardAt = useCallback((x: number, y: number) => {
-    dispatch({ type: 'add', x, y })
-  }, [])
+      if (card) {
+        dispatch({
+          type: 'update',
+          id: card.id,
+          patch: { attachments: mergeAttachments(card.attachments, items) },
+        })
+        const hasImage = items.some((item) => item.kind === 'image')
+        notify(hasImage ? '已把图片放进这张卡片' : '已把文件链接放进这张卡片')
+        return
+      }
 
-  const updateCard = useCallback(
-    (id: string, patch: Partial<CardData>, touch?: boolean) => {
-      dispatch({ type: 'update', id, patch, touch })
+      const px = point?.x ?? 90
+      const py = point?.y ?? 90
+      dispatch({
+        type: 'add',
+        quadrant: quadrantFromPoint(px, py),
+        x: px - NEW_CARD_OFFSET_X,
+        y: py - NEW_CARD_OFFSET_Y,
+        title: titleFromAttachment(items[0]),
+        attachments: items.slice(0, MAX_ATTACHMENTS),
+      })
+      notify('已新建卡片并放入附件')
     },
-    [],
+    [notify],
   )
 
+  const cardIdAt = useCallback((clientX: number, clientY: number): string | null => {
+    const target = document.elementFromPoint(clientX, clientY) as HTMLElement | null
+    return (target?.closest('[data-card-id]') as HTMLElement | null)?.dataset.cardId ?? null
+  }, [])
+
+  const canvasPoint = useCallback((clientX: number, clientY: number) => {
+    const canvas = document.querySelector('.board-canvas') as HTMLElement | null
+    const rect = canvas?.getBoundingClientRect()
+    if (!rect) return undefined
+    return { x: clientX - rect.left, y: clientY - rect.top }
+  }, [])
+
+  // 桌面端：系统拖拽走 Tauri 事件，拿到的是真实路径。
+  const dropHoverId = useRef<string | null>(null)
+  const nativeDrop = useRef<(drop: NativeDrop) => void>(() => {})
+  nativeDrop.current = (drop) => {
+    if (drop.kind !== 'drop') {
+      const hovered = drop.kind === 'over' ? cardIdAt(drop.x, drop.y) : null
+      if (hovered !== dropHoverId.current) {
+        dropHoverId.current = hovered
+        setDropTargetId(hovered)
+      }
+      return
+    }
+    dropHoverId.current = null
+    setDropTargetId(null)
+    if (drop.paths.length === 0) return
+    const paths = drop.paths.slice(0, MAX_ATTACHMENTS)
+    void Promise.all(paths.map(pathToAttachment)).then((created) => {
+      const list = created.filter((item): item is Attachment => item !== null)
+      applyAttachments(cardIdAt(drop.x, drop.y), list, canvasPoint(drop.x, drop.y))
+    })
+  }
+
+  useEffect(() => {
+    if (!isDesktop) return
+    return watchNativeDrop((drop) => nativeDrop.current(drop))
+  }, [])
+
+  // 浏览器端：HTML5 拖拽；桌面端这个分支不会触发。
+  useEffect(() => {
+    const onDragOver = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    }
+    const onDrop = (event: DragEvent) => {
+      const files = Array.from(event.dataTransfer?.files ?? [])
+      if (files.length === 0) return
+      event.preventDefault()
+      const { clientX, clientY } = event
+      const picked = files.slice(0, MAX_ATTACHMENTS)
+      void Promise.all(picked.map(fileToAttachment)).then((created) => {
+        const list = created.filter((item): item is Attachment => item !== null)
+        applyAttachments(cardIdAt(clientX, clientY), list, canvasPoint(clientX, clientY))
+      })
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [applyAttachments, cardIdAt, canvasPoint])
+
+  // 焦点不在卡片里时的兜底粘贴：进当前卡片，没有卡片就新建一张。
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('[data-card-id]')) return
+      const files = Array.from(event.clipboardData?.files ?? [])
+      if (files.length === 0) return
+      event.preventDefault()
+      void Promise.all(files.slice(0, MAX_ATTACHMENTS).map(fileToAttachment)).then((created) => {
+        const list = created.filter((item): item is Attachment => item !== null)
+        applyAttachments(stateRef.current.activeId, list)
+      })
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [applyAttachments])
+
+  const addCard = useCallback(
+    (quadrant?: CardData['quadrant']) => {
+      setQuery('')
+      dispatch({ type: 'add', quadrant })
+      notify('已新建一张卡片')
+    },
+    [notify],
+  )
+
+  const addCardAt = useCallback((x: number, y: number) => {
+    dispatch({
+      type: 'add',
+      quadrant: quadrantFromPoint(x, y),
+      x: x - NEW_CARD_OFFSET_X,
+      y: y - NEW_CARD_OFFSET_Y,
+    })
+  }, [])
+
+  const updateCard = useCallback((id: string, patch: Partial<CardData>, touch?: boolean) => {
+    dispatch({ type: 'update', id, patch, touch })
+  }, [])
+
   const arrange = useCallback(() => {
-    const usable = window.innerWidth - 96
-    const columns = Math.max(1, Math.min(6, Math.floor(usable / 372)))
-    dispatch({ type: 'arrange', columns })
-    notify('已按内容整理布局')
+    dispatch({ type: 'arrange' })
+    notify('已按象限重新排列')
   }, [notify])
 
   const patchSettings = useCallback((patch: Partial<Settings>) => {
@@ -151,7 +307,8 @@ export function App() {
     return cards.filter(
       (card) =>
         card.title.toLowerCase().includes(needle) ||
-        card.body.toLowerCase().includes(needle),
+        card.body.toLowerCase().includes(needle) ||
+        card.attachments.some((item) => item.name.toLowerCase().includes(needle)),
     ).length
   }, [cards, query])
 
@@ -169,10 +326,29 @@ export function App() {
     notify('已清空全部卡片')
   }, [confirmingClear, notify])
 
+  const toggleArchive = useCallback(() => {
+    setArchiveOpen((open) => {
+      if (!open) setSettingsOpen(false)
+      return !open
+    })
+  }, [])
+
+  const toggleSettings = useCallback(() => {
+    setSettingsOpen((open) => {
+      if (!open) setArchiveOpen(false)
+      return !open
+    })
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (preview) {
+          setPreview(null)
+          return
+        }
         setSettingsOpen(false)
+        setArchiveOpen(false)
         setConfirmingClear(false)
         return
       }
@@ -187,14 +363,14 @@ export function App() {
         searchRef.current?.select()
       } else if (key === ',') {
         event.preventDefault()
-        setSettingsOpen((open) => !open)
+        toggleSettings()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [addCard])
+  }, [addCard, preview, toggleSettings])
 
-  const isDimmed = settings.dimOnBlur && !windowFocused && !settingsOpen
+  const isDimmed = settings.dimOnBlur && !windowFocused && !settingsOpen && !archiveOpen
 
   return (
     <div className={`shell${isDimmed ? ' is-dimmed' : ''}`}>
@@ -204,6 +380,7 @@ export function App() {
           platformLabel={platformLabel}
           alwaysOnTop={settings.alwaysOnTop}
           cardCount={cards.length}
+          archivedCount={archived.length}
           onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
           onMinimize={() => void minimizeWindow()}
           onClose={() => void closeWindow()}
@@ -215,17 +392,18 @@ export function App() {
           onQueryChange={setQuery}
           cardCount={cards.length}
           matchCount={matchCount}
+          archivedCount={archived.length}
           theme={settings.theme}
           accent={settings.accent}
           allCollapsed={allCollapsed}
           settingsOpen={settingsOpen}
-          onAdd={addCard}
+          archiveOpen={archiveOpen}
+          onAdd={() => addCard()}
           onArrange={arrange}
-          onToggleCollapseAll={() =>
-            dispatch({ type: 'collapseAll', value: !allCollapsed })
-          }
+          onToggleCollapseAll={() => dispatch({ type: 'collapseAll', value: !allCollapsed })}
           onCycleTheme={cycleTheme}
-          onToggleSettings={() => setSettingsOpen((open) => !open)}
+          onToggleArchive={toggleArchive}
+          onToggleSettings={toggleSettings}
         />
 
         <Board
@@ -234,6 +412,7 @@ export function App() {
           query={query}
           snap={settings.snapToGrid}
           showGrid={settings.showGrid}
+          dropTargetId={dropTargetId}
           now={now}
           onAddAt={addCardAt}
           onUpdate={updateCard}
@@ -242,13 +421,38 @@ export function App() {
             dispatch({ type: 'remove', id })
             notify('已删除卡片')
           }}
-          onCycleTone={(id) => dispatch({ type: 'cycleTone', id })}
-          onTogglePin={(id) => dispatch({ type: 'togglePin', id })}
+          onArchive={(id) => {
+            dispatch({ type: 'archive', id })
+            notify('已归档，可在「归档」里找到')
+          }}
+          onPreview={setPreview}
+          onNotify={notify}
           onBlurBoard={() => {
             dispatch({ type: 'blur' })
             setSettingsOpen(false)
+            setArchiveOpen(false)
           }}
         />
+
+        {archiveOpen ? (
+          <ArchiveDrawer
+            archived={archived}
+            now={now}
+            onRestore={(id) => {
+              dispatch({ type: 'restoreArchived', id })
+              notify('已恢复到原来的象限')
+            }}
+            onDelete={(id) => {
+              dispatch({ type: 'deleteArchived', id })
+              notify('已删除这条归档')
+            }}
+            onClear={() => {
+              dispatch({ type: 'clearArchived' })
+              notify('已清空归档')
+            }}
+            onClose={() => setArchiveOpen(false)}
+          />
+        ) : null}
 
         {settingsOpen ? (
           <SettingsDrawer
@@ -264,6 +468,26 @@ export function App() {
             }}
             onClose={() => setSettingsOpen(false)}
           />
+        ) : null}
+
+        {preview ? (
+          <div
+            className="preview"
+            role="dialog"
+            aria-label={`预览 ${preview.name}`}
+            onClick={() => setPreview(null)}
+          >
+            <figure className="preview__frame" onClick={(event) => event.stopPropagation()}>
+              <img className="preview__image" src={preview.src} alt={preview.name} />
+              <figcaption className="preview__bar">
+                <span className="preview__name">{preview.name}</span>
+                <NeuButton size="sm" onClick={() => setPreview(null)}>
+                  <IconClose size={14} />
+                  关闭
+                </NeuButton>
+              </figcaption>
+            </figure>
+          </div>
         ) : null}
 
         {toast ? (

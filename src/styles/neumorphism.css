@@ -87,6 +87,7 @@
 .nm-btn--sm.nm-btn--icon {
   width: 34px;
   min-width: 34px;
+  padding: 0;
 }
 
 .nm-btn--primary {

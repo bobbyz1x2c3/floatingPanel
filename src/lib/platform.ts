@@ -1,14 +1,37 @@
+interface DragDropPosition {
+  x: number
+  y: number
+}
+
+type DragDropEvent =
+  | { type: 'enter'; paths: string[]; position: DragDropPosition }
+  | { type: 'over'; position: DragDropPosition }
+  | { type: 'drop'; paths: string[]; position: DragDropPosition }
+  | { type: 'leave' }
+
 type AppWindow = {
   minimize: () => Promise<void>
   close: () => Promise<void>
   setAlwaysOnTop: (value: boolean) => Promise<void>
   setEffects?: (effects: unknown) => Promise<void>
+  onDragDropEvent?: (handler: (event: { payload: DragDropEvent }) => void) => Promise<() => void>
+}
+
+export interface NativeDrop {
+  kind: 'over' | 'leave' | 'drop'
+  paths: string[]
+  x: number
+  y: number
 }
 
 export const isDesktop: boolean =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 export const platformLabel: string = isDesktop ? '桌面悬浮窗' : '浏览器模式'
+
+/** 打开链接/文件时使用的修饰键，按平台显示。 */
+export const openModifier: string =
+  typeof navigator !== 'undefined' && /mac/i.test(navigator.userAgent) ? '⌘' : 'Ctrl'
 
 async function resolveWindow(): Promise<AppWindow | null> {
   if (!isDesktop) return null
@@ -17,6 +40,22 @@ async function resolveWindow(): Promise<AppWindow | null> {
     return api.getCurrentWindow() as unknown as AppWindow
   } catch {
     return null
+  }
+}
+
+interface InvokeResult<T> {
+  ok: boolean
+  value: T | null
+}
+
+async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<InvokeResult<T>> {
+  if (!isDesktop) return { ok: false, value: null }
+  try {
+    const core = await import('@tauri-apps/api/core')
+    const value = await core.invoke<T>(command, args)
+    return { ok: true, value: value ?? null }
+  } catch {
+    return { ok: false, value: null }
   }
 }
 
@@ -45,9 +84,78 @@ export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
 
 export function applyBlurBehind(enabled: boolean): Promise<boolean> {
   return run(async (win) => {
-    if (typeof win.setEffects !== 'function') {
-      throw new Error('effects unsupported')
-    }
-    await win.setEffects(enabled ? { effects: ['mica', 'acrylic'] } : { effects: [] })
+    if (typeof win.setEffects !== 'function') throw new Error('effects unsupported')
+    await win.setEffects(enabled ? { effects: ['acrylic'], state: 'active' } : { effects: [] })
   })
+}
+
+/** 桌面端把本地文件读成 data URL，浏览器端返回 null。 */
+export async function readFileAsDataUrl(path: string): Promise<string | null> {
+  const result = await invoke<string>('read_file_data_url', { path })
+  return result.ok ? result.value : null
+}
+
+function openViaWindow(target: string): boolean {
+  try {
+    return window.open(target, '_blank', 'noopener,noreferrer') !== null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 打开外部目标。
+ * 本地路径与 http 链接交给系统浏览器/默认程序；blob 与 data 只能在页面内打开。
+ */
+export async function openTarget(target: string): Promise<boolean> {
+  if (!target) return false
+  if (target.startsWith('blob:') || target.startsWith('data:')) return openViaWindow(target)
+  if (isDesktop) {
+    const result = await invoke<void>('open_target', { target })
+    return result.ok
+  }
+  return openViaWindow(target)
+}
+
+export function watchNativeDrop(handler: (drop: NativeDrop) => void): () => void {
+  let dispose: (() => void) | null = null
+  let cancelled = false
+
+  void resolveWindow().then(async (win) => {
+    if (!win || typeof win.onDragDropEvent !== 'function') return
+    try {
+      const ratio = window.devicePixelRatio || 1
+      const off = await win.onDragDropEvent((event) => {
+        const payload = event.payload
+        if (payload.type === 'leave') {
+          handler({ kind: 'leave', paths: [], x: 0, y: 0 })
+          return
+        }
+        if (payload.type !== 'drop' && payload.type !== 'over') return
+        handler({
+          kind: payload.type,
+          paths: payload.type === 'drop' ? (payload.paths ?? []) : [],
+          x: payload.position.x / ratio,
+          y: payload.position.y / ratio,
+        })
+      })
+      if (cancelled) {
+        off()
+        return
+      }
+      dispose = off
+    } catch {
+      dispose = null
+    }
+  })
+
+  return () => {
+    cancelled = true
+    if (dispose) dispose()
+  }
+}
+
+export function toFileHref(path: string): string {
+  const normalized = path.replace(/\\/g, '/')
+  return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`
 }

@@ -95,13 +95,68 @@ export function IconTrash(props: Omit<IconProps, 'children'>) {
   )
 }
 
-export function IconPalette(props: Omit<IconProps, 'children'>) {
+export function IconCheck(props: Omit<IconProps, 'children'>) {
   return (
     <Icon {...props}>
-      <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.9-.8 1.9-1.7 0-1.5-1.3-1.8-1.3-3 0-.9.8-1.6 1.8-1.6h1.4c2.1 0 3.7-1.5 3.7-3.6C19.5 6.4 16.2 3.5 12 3.5Z" />
-      <circle cx="8.6" cy="10.6" r="0.9" />
-      <circle cx="12" cy="8" r="0.9" />
-      <circle cx="15.4" cy="10.2" r="0.9" />
+      <path d="M5 12.8 9.6 17.4 19 8" />
+    </Icon>
+  )
+}
+
+export function IconArchive(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <rect x="3.4" y="4.4" width="17.2" height="4.4" rx="1.8" />
+      <path d="M5.2 8.8h13.6v9.6a1.8 1.8 0 0 1-1.8 1.8H7a1.8 1.8 0 0 1-1.8-1.8V8.8Z" />
+      <path d="M10 12.4h4" />
+    </Icon>
+  )
+}
+
+export function IconRestore(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" />
+      <path d="M4.2 4.6v3.8h3.8" />
+    </Icon>
+  )
+}
+
+export function IconImage(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <rect x="3.6" y="4.6" width="16.8" height="14.8" rx="3" />
+      <circle cx="9" cy="10" r="1.5" />
+      <path d="M4.6 17.4l4.3-4.1a1.8 1.8 0 0 1 2.5 0l3.2 3.1" />
+      <path d="M14.2 15.2l1.6-1.5a1.8 1.8 0 0 1 2.5 0l2.1 2" />
+    </Icon>
+  )
+}
+
+export function IconFile(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M13.4 3.6H7.4a2 2 0 0 0-2 2v12.8a2 2 0 0 0 2 2h9.2a2 2 0 0 0 2-2V8.8l-5.2-5.2Z" />
+      <path d="M13.4 3.6v5.2h5.2" />
+    </Icon>
+  )
+}
+
+export function IconLink(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M10.2 13.8a3.6 3.6 0 0 0 5.1 0l2.7-2.7a3.6 3.6 0 0 0-5.1-5.1l-1.2 1.2" />
+      <path d="M13.8 10.2a3.6 3.6 0 0 0-5.1 0l-2.7 2.7a3.6 3.6 0 0 0 5.1 5.1l1.2-1.2" />
+    </Icon>
+  )
+}
+
+export function IconExternal(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <path d="M13.6 4.4h6v6" />
+      <path d="M19.6 4.4 12.4 11.6" />
+      <path d="M18.4 14.2v4.2a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.4V7.6a1.8 1.8 0 0 1 1.8-1.8h4.2" />
     </Icon>
   )
 }
@@ -177,34 +232,6 @@ export function IconResize(props: Omit<IconProps, 'children'>) {
     <Icon {...props}>
       <path d="M13.5 20h6.5v-6.5" />
       <path d="M20 20l-6.8-6.8" />
-    </Icon>
-  )
-}
-
-export function IconEyeOff(props: Omit<IconProps, 'children'>) {
-  return (
-    <Icon {...props}>
-      <path d="M4 12s3-5.2 8-5.2c1.2 0 2.3.3 3.2.8" />
-      <path d="M20 12s-3 5.2-8 5.2c-1.2 0-2.3-.3-3.2-.8" />
-      <path d="M4 4l16 16" />
-      <path d="M10.2 10.4a2.4 2.4 0 0 0 3.4 3.4" />
-    </Icon>
-  )
-}
-
-export function IconDroplet(props: Omit<IconProps, 'children'>) {
-  return (
-    <Icon {...props}>
-      <path d="M12 3.6c3.2 3.6 5.2 6.3 5.2 8.6a5.2 5.2 0 0 1-10.4 0c0-2.3 2-5 5.2-8.6Z" />
-    </Icon>
-  )
-}
-
-export function IconRestore(props: Omit<IconProps, 'children'>) {
-  return (
-    <Icon {...props}>
-      <path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" />
-      <path d="M4.2 4.6v3.8h3.8" />
     </Icon>
   )
 }

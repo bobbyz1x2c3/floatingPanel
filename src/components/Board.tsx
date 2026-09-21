@@ -1,6 +1,14 @@
 import { useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import type { CardData } from '../lib/types'
+import {
+  CANVAS_MIN_HEIGHT,
+  CANVAS_MIN_WIDTH,
+  QUADRANTS,
+  QUADRANT_META,
+  ZONE_HEIGHT,
+  ZONE_WIDTH,
+} from '../lib/types'
+import type { Attachment, CardData } from '../lib/types'
 import { CardView } from './CardView'
 import { IconLayers } from './icons'
 
@@ -10,13 +18,15 @@ export interface BoardProps {
   query: string
   snap: boolean
   showGrid: boolean
+  dropTargetId: string | null
   now: number
   onAddAt: (x: number, y: number) => void
   onUpdate: (id: string, patch: Partial<CardData>, touch?: boolean) => void
   onFocus: (id: string) => void
   onRemove: (id: string) => void
-  onCycleTone: (id: string) => void
-  onTogglePin: (id: string) => void
+  onArchive: (id: string) => void
+  onPreview: (attachment: Attachment) => void
+  onNotify: (message: string) => void
   onBlurBoard: () => void
 }
 
@@ -25,7 +35,9 @@ function matchesQuery(card: CardData, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   return (
-    card.title.toLowerCase().includes(needle) || card.body.toLowerCase().includes(needle)
+    card.title.toLowerCase().includes(needle) ||
+    card.body.toLowerCase().includes(needle) ||
+    card.attachments.some((item) => item.name.toLowerCase().includes(needle))
   )
 }
 
@@ -35,37 +47,44 @@ export function Board({
   query,
   snap,
   showGrid,
+  dropTargetId,
   now,
   onAddAt,
   onUpdate,
   onFocus,
   onRemove,
-  onCycleTone,
-  onTogglePin,
+  onArchive,
+  onPreview,
+  onNotify,
   onBlurBoard,
 }: BoardProps) {
   const bounds = useMemo(() => {
-    let width = 0
-    let height = 0
+    let width = CANVAS_MIN_WIDTH
+    let height = CANVAS_MIN_HEIGHT
     for (const card of cards) {
-      const cardHeight = card.collapsed ? 74 : card.height
-      width = Math.max(width, card.x + card.width + 48)
-      height = Math.max(height, card.y + cardHeight + 48)
+      const cardHeight = card.collapsed ? 78 : card.height
+      width = Math.max(width, card.x + card.width + 64)
+      height = Math.max(height, card.y + cardHeight + 64)
     }
-    return { width: Math.max(width, 360), height: Math.max(height, 260) }
+    return { width, height }
   }, [cards])
 
-  const ordered = useMemo(() => [...cards].sort((a, b) => a.z - b.z), [cards])
   const filtered = query.trim().length > 0
   const matchCount = useMemo(
     () => cards.filter((card) => matchesQuery(card, query)).length,
     [cards, query],
   )
 
+  const counts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const card of cards) map.set(card.quadrant, (map.get(card.quadrant) ?? 0) + 1)
+    return map
+  }, [cards])
+
   const handleDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return
     const rect = event.currentTarget.getBoundingClientRect()
-    onAddAt(event.clientX - rect.left - 60, event.clientY - rect.top - 24)
+    onAddAt(event.clientX - rect.left, event.clientY - rect.top)
   }
 
   return (
@@ -78,20 +97,57 @@ export function Board({
           if (event.target === event.currentTarget) onBlurBoard()
         }}
       >
-        {ordered.map((card) => (
+        <div className="zones" aria-hidden="true">
+          {QUADRANTS.map((key) => {
+            const meta = QUADRANT_META[key]
+            return (
+              <div
+                key={key}
+                className="zone"
+                data-tone={meta.tone}
+                style={{
+                  left: meta.column * ZONE_WIDTH,
+                  top: meta.row * ZONE_HEIGHT,
+                  width: ZONE_WIDTH,
+                  height: ZONE_HEIGHT,
+                }}
+              >
+                <span className="zone__panel" />
+                <span className="zone__head">
+                  <span className="zone__dot" />
+                  <span className="zone__title">{meta.title}</span>
+                  <span className="zone__count">{counts.get(key) ?? 0}</span>
+                </span>
+                <span className="zone__hint">
+                  {meta.position} · {meta.hint}
+                </span>
+              </div>
+            )
+          })}
+          <span className="zones__divider zones__divider--v" style={{ left: ZONE_WIDTH }} />
+          <span className="zones__divider zones__divider--h" style={{ top: ZONE_HEIGHT }} />
+        </div>
+
+        {/*
+          刻意按 state 里的原始顺序渲染：z-index 已经决定了叠放层次，
+          如果按 z 排序，focus 时 React 会移动卡片节点，pointerdown/click 就会被拆散。
+        */}
+        {cards.map((card) => (
           <CardView
             key={card.id}
             card={card}
             active={activeId === card.id}
             dimmed={filtered && !matchesQuery(card, query)}
             matched={filtered && matchesQuery(card, query)}
+            dropTarget={dropTargetId === card.id}
             snap={snap}
             now={now}
             onChange={(patch, touch) => onUpdate(card.id, patch, touch)}
             onBringToFront={() => onFocus(card.id)}
             onRemove={() => onRemove(card.id)}
-            onCycleTone={() => onCycleTone(card.id)}
-            onTogglePin={() => onTogglePin(card.id)}
+            onArchive={() => onArchive(card.id)}
+            onPreview={onPreview}
+            onNotify={onNotify}
           />
         ))}
 
@@ -102,7 +158,7 @@ export function Board({
             </span>
             <p className="empty__title">还没有卡片</p>
             <p className="empty__hint">
-              点击上方「新建卡片」，或在空白处双击，即可放下一张新的悬浮卡片。
+              点击上方「新建卡片」，或在空白处双击，卡片会落到双击所在的象限里。
             </p>
           </div>
         ) : null}

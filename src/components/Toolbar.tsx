@@ -1,6 +1,18 @@
 import type { RefObject } from 'react'
 import { NeuButton, NeuField } from './controls'
-import { IconChevronDown, IconChevronUp, IconClose, IconGrid, IconMonitor, IconMoon, IconPlus, IconSearch, IconSliders, IconSun } from './icons'
+import {
+  IconArchive,
+  IconChevronDown,
+  IconChevronUp,
+  IconClose,
+  IconGrid,
+  IconMonitor,
+  IconMoon,
+  IconPlus,
+  IconSearch,
+  IconSliders,
+  IconSun,
+} from './icons'
 import type { CardTone, ThemeMode } from '../lib/types'
 
 export interface ToolbarProps {
@@ -8,14 +20,17 @@ export interface ToolbarProps {
   onQueryChange: (value: string) => void
   cardCount: number
   matchCount: number
+  archivedCount: number
   theme: ThemeMode
   accent: CardTone
   allCollapsed: boolean
   settingsOpen: boolean
+  archiveOpen: boolean
   onAdd: () => void
   onArrange: () => void
   onToggleCollapseAll: () => void
   onCycleTheme: () => void
+  onToggleArchive: () => void
   onToggleSettings: () => void
   searchRef?: RefObject<HTMLInputElement | null>
 }
@@ -31,22 +46,25 @@ export function Toolbar({
   onQueryChange,
   cardCount,
   matchCount,
+  archivedCount,
   theme,
   accent,
   allCollapsed,
   settingsOpen,
+  archiveOpen,
   onAdd,
   onArrange,
   onToggleCollapseAll,
   onCycleTheme,
+  onToggleArchive,
   onToggleSettings,
   searchRef,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
-      <NeuButton variant="primary" onClick={onAdd} data-tone={accent}>
+      <NeuButton variant="primary" className="toolbar__add" onClick={onAdd} data-tone={accent}>
         <IconPlus size={17} />
-        新建卡片
+        <span className="toolbar__label">新建</span>
       </NeuButton>
 
       <div className="search">
@@ -76,29 +94,31 @@ export function Toolbar({
       <div className="toolbar__spacer" />
 
       {query.trim() ? (
-        <span className="nm-chip" aria-live="polite">
+        <span className="nm-chip toolbar__hits" aria-live="polite">
           <span className="nm-chip__dot" style={{ background: 'var(--nm-accent)' }} />
-          {matchCount} / {cardCount} 命中
+          {matchCount} / {cardCount}
         </span>
       ) : null}
 
       <NeuButton
+        className="toolbar__arrange"
         aria-label="整理布局"
-        title="按内容整理布局"
+        title="按象限重新排列卡片"
         onClick={onArrange}
         disabled={cardCount === 0}
       >
         <IconGrid size={16} />
-        整理
+        <span className="toolbar__label">整理</span>
       </NeuButton>
 
       <NeuButton
+        iconOnly
         aria-label={allCollapsed ? '展开全部卡片' : '收起全部卡片'}
         title={allCollapsed ? '展开全部卡片' : '收起全部卡片'}
         onClick={onToggleCollapseAll}
         disabled={cardCount === 0}
       >
-        {allCollapsed ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
+        {allCollapsed ? <IconChevronDown size={17} /> : <IconChevronUp size={17} />}
       </NeuButton>
 
       <NeuButton
@@ -114,6 +134,19 @@ export function Toolbar({
         ) : (
           <IconMonitor size={17} />
         )}
+      </NeuButton>
+
+      <NeuButton
+        active={archiveOpen}
+        aria-label={`归档 ${archivedCount} 张卡片`}
+        title={`归档 · 已归档 ${archivedCount} 张`}
+        onClick={onToggleArchive}
+      >
+        <IconArchive size={17} />
+        <span className="toolbar__label">归档</span>
+        <span className={`toolbar__badge${archivedCount > 0 ? ' is-live' : ''}`}>
+          {archivedCount}
+        </span>
       </NeuButton>
 
       <NeuButton
