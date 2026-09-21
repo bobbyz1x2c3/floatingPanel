@@ -106,17 +106,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${{ needs.release.outputs.tag }}"
-          # 把安装包（以及配了签名时的 .sig / latest.json）一起找出来传上去
-          mapfile -t files < <(find src-tauri/target -path "*/release/bundle/*" -type f \
+          # 把安装包（以及配了签名时的 .sig / latest.json）一起找出来传上去。
+          # 注意用 while read 而不是 mapfile：macOS runner 上的 bash 还是 3.2，没有 mapfile。
+          count=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "上传 $file"
+            gh release upload "$tag" "$file" --clobber
+            count=$((count + 1))
+          done < <(find src-tauri/target -path "*/release/bundle/*" -type f \
             \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" \
                -o -name "*.deb" -o -name "*.rpm" -o -name "*.sig" -o -name "latest.json" \) \
-            | grep -v -E "/(debug|.tmp)/" | sort)
-          if [ ${#files[@]} -eq 0 ]; then
+            | grep -v -E "/(debug|\.tmp)/" | sort)
+          if [ "$count" -eq 0 ]; then
             echo "没有找到产物，检查一下打包步骤" >&2
             exit 1
           fi
-          printf '准备上传：\n%s\n' "${files[@]}"
-          gh release upload "$tag" "${files[@]}" --clobber
+          echo "本平台共上传 $count 个文件"
 
   # ---------- 3. 发布页跟着更新 ----------
   pages:

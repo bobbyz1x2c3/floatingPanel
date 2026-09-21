@@ -339,7 +339,12 @@ body.is-desktop .shell::before {
     这样和拖动时的 transform: scale() 不会互相覆盖。
     延迟由 Board 按顺序给，一叠卡片会像翻牌一样依次落下来。
   */
-  animation: card-in 300ms var(--nm-ease-out) both;
+  /*
+    fill-mode 用 backwards 而不是 both：动画结束后要交还控制权，
+    否则动画里那个 opacity: 1 会一直压着 .is-dimmed / :hover 的透明度。
+    延迟期间仍然保持起始状态，所以依次落下的效果不受影响。
+  */
+  animation: card-in 300ms var(--nm-ease-out) backwards;
   animation-delay: var(--enter-delay, 0ms);
 }
 
@@ -389,8 +394,14 @@ body.is-desktop .shell::before {
 }
 
 .card.is-dimmed {
-  opacity: 0.4;
-  filter: saturate(0.55);
+  /* 搜索时没命中的卡片压到几乎看不见，但还留一点轮廓，方便看清板子原本的布局。 */
+  opacity: 0.14;
+  filter: saturate(0.4);
+}
+
+/* 鼠标移上去时稍微回一点，免得想点它却找不着。 */
+.card.is-dimmed:hover {
+  opacity: 0.5;
 }
 
 .card__head {
