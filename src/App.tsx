@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
 import { SettingsDrawer } from './components/SettingsDrawer'
-import { TitleBar } from './components/TitleBar'
-import { Toolbar } from './components/Toolbar'
+import { TopBar } from './components/TopBar'
 import { NeuButton } from './components/controls'
 import { IconClose } from './components/icons'
 import {
@@ -24,8 +31,9 @@ import {
 import type { NativeDrop } from './lib/platform'
 import { clearState, loadState, saveState } from './lib/storage'
 import { boardReducer, createInitialState } from './lib/store'
-import { quadrantFromPoint } from './lib/types'
-import type { Attachment, CardData, Settings } from './lib/types'
+import { quadrantFromPoint, zoneSizeFor } from './lib/types'
+import type { Attachment, CardData, Settings, ZoneSize } from './lib/types'
+import { playCompleteSound } from './lib/sound'
 import './styles/tokens.css'
 import './styles/neumorphism.css'
 import './styles/app.css'
@@ -34,6 +42,17 @@ const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
 const NEW_CARD_OFFSET_X = 46
 const NEW_CARD_OFFSET_Y = 22
+
+/** 四象限的可用区域 = .board 的内容盒（要扣掉内边距和滚动条）。 */
+function measureBoardViewport(element: HTMLElement) {
+  const style = window.getComputedStyle(element)
+  const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+  const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+  return {
+    width: element.clientWidth - padX,
+    height: element.clientHeight - padY,
+  }
+}
 
 function resolveInitialState() {
   return loadState() ?? createInitialState()
@@ -61,10 +80,33 @@ export function App() {
   const confirmTimer = useRef<number | null>(null)
   const storageWarned = useRef(false)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const boardRef = useRef<HTMLDivElement | null>(null)
+  const [zone, setZone] = useState<ZoneSize>(() =>
+    zoneSizeFor(window.innerWidth - 32, window.innerHeight - 132),
+  )
+  const zoneRef = useRef(zone)
+  zoneRef.current = zone
   const stateRef = useRef(state)
   stateRef.current = state
 
   const { cards, archived, settings } = state
+
+  // 四象限跟着窗口走：每格恒等于可视区的一半（低于最小值时才开始滚动）。
+  useLayoutEffect(() => {
+    const element = boardRef.current
+    if (!element) return
+    const measure = () => {
+      const viewport = measureBoardViewport(element)
+      const next = zoneSizeFor(viewport.width, viewport.height)
+      setZone((prev) =>
+        prev.width === next.width && prev.height === next.height ? prev : next,
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   const notify = useCallback((message: string) => {
     setToast(message)
@@ -89,12 +131,11 @@ export function App() {
     return () => window.clearInterval(handle)
   }, [])
 
-  // 旧存档（四象限之前）里的卡片位置没有象限含义，首次加载时自动归位一次。
+  // 旧存档（四象限之前）和全新示例都没有按真实窗口排布过，首次加载补一次归位。
   useEffect(() => {
     if (stateRef.current.version >= 2) return
-    dispatch({ type: 'arrange' })
-    notify('已把原有卡片按象限排布好')
-  }, [notify])
+    dispatch({ type: 'arrange', zone: zoneRef.current })
+  }, [])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -166,7 +207,8 @@ export function App() {
       const py = point?.y ?? 90
       dispatch({
         type: 'add',
-        quadrant: quadrantFromPoint(px, py),
+        zone: zoneRef.current,
+        quadrant: quadrantFromPoint(px, py, zoneRef.current),
         x: px - NEW_CARD_OFFSET_X,
         y: py - NEW_CARD_OFFSET_Y,
         title: titleFromAttachment(items[0]),
@@ -262,7 +304,7 @@ export function App() {
   const addCard = useCallback(
     (quadrant?: CardData['quadrant']) => {
       setQuery('')
-      dispatch({ type: 'add', quadrant })
+      dispatch({ type: 'add', zone: zoneRef.current, quadrant })
       notify('已新建一张卡片')
     },
     [notify],
@@ -271,7 +313,8 @@ export function App() {
   const addCardAt = useCallback((x: number, y: number) => {
     dispatch({
       type: 'add',
-      quadrant: quadrantFromPoint(x, y),
+      zone: zoneRef.current,
+      quadrant: quadrantFromPoint(x, y, zoneRef.current),
       x: x - NEW_CARD_OFFSET_X,
       y: y - NEW_CARD_OFFSET_Y,
     })
@@ -282,7 +325,7 @@ export function App() {
   }, [])
 
   const arrange = useCallback(() => {
-    dispatch({ type: 'arrange' })
+    dispatch({ type: 'arrange', zone: zoneRef.current })
     notify('已按象限重新排列')
   }, [notify])
 
@@ -375,24 +418,16 @@ export function App() {
   return (
     <div className={`shell${isDimmed ? ' is-dimmed' : ''}`}>
       <div className="panel">
-        <TitleBar
+        <TopBar
           isDesktop={isDesktop}
           platformLabel={platformLabel}
           alwaysOnTop={settings.alwaysOnTop}
           cardCount={cards.length}
           archivedCount={archived.length}
-          onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
-          onMinimize={() => void minimizeWindow()}
-          onClose={() => void closeWindow()}
-        />
-
-        <Toolbar
           searchRef={searchRef}
           query={query}
           onQueryChange={setQuery}
-          cardCount={cards.length}
           matchCount={matchCount}
-          archivedCount={archived.length}
           theme={settings.theme}
           accent={settings.accent}
           allCollapsed={allCollapsed}
@@ -404,6 +439,9 @@ export function App() {
           onCycleTheme={cycleTheme}
           onToggleArchive={toggleArchive}
           onToggleSettings={toggleSettings}
+          onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
+          onMinimize={() => void minimizeWindow()}
+          onClose={() => void closeWindow()}
         />
 
         <Board
@@ -423,10 +461,13 @@ export function App() {
           }}
           onArchive={(id) => {
             dispatch({ type: 'archive', id })
+            if (settings.soundOnComplete) playCompleteSound()
             notify('已归档，可在「归档」里找到')
           }}
           onPreview={setPreview}
           onNotify={notify}
+          zone={zone}
+          boardRef={boardRef}
           onBlurBoard={() => {
             dispatch({ type: 'blur' })
             setSettingsOpen(false)
@@ -439,7 +480,7 @@ export function App() {
             archived={archived}
             now={now}
             onRestore={(id) => {
-              dispatch({ type: 'restoreArchived', id })
+              dispatch({ type: 'restoreArchived', id, zone: zoneRef.current })
               notify('已恢复到原来的象限')
             }}
             onDelete={(id) => {

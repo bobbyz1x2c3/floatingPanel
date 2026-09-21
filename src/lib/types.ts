@@ -46,6 +46,7 @@ export interface Settings {
   alwaysOnTop: boolean
   dimOnBlur: boolean
   blurBehind: boolean
+  soundOnComplete: boolean
 }
 
 export interface BoardState {
@@ -68,18 +69,31 @@ export const TONE_LABELS: Record<CardTone, string> = {
   graphite: '石墨',
 }
 
-export const CARD_MIN_WIDTH = 230
-export const CARD_MIN_HEIGHT = 150
+export const CARD_MIN_WIDTH = 250
+export const CARD_MIN_HEIGHT = 168
 export const CARD_MAX_WIDTH = 780
 export const CARD_MAX_HEIGHT = 700
 export const GRID_STEP = 26
 
-export const ZONE_WIDTH = 560
-export const ZONE_HEIGHT = 400
+/** 象限最小尺寸：窗口再小也不会挤到看不清。 */
+export const ZONE_MIN_WIDTH = 320
+export const ZONE_MIN_HEIGHT = 250
 export const ZONE_INSET = 16
+/** 卡片摆放的上边界：让出每个象限顶上的一行标题。 */
+export const ZONE_CONTENT_TOP = 62
 
-export const CANVAS_MIN_WIDTH = ZONE_WIDTH * 2
-export const CANVAS_MIN_HEIGHT = ZONE_HEIGHT * 2
+export interface ZoneSize {
+  width: number
+  height: number
+}
+
+/** 四象限随窗口自适应：每格占可视区的一半，但不小于最小值。 */
+export function zoneSizeFor(viewportWidth: number, viewportHeight: number): ZoneSize {
+  return {
+    width: Math.max(ZONE_MIN_WIDTH, Math.round(viewportWidth / 2)),
+    height: Math.max(ZONE_MIN_HEIGHT, Math.round(viewportHeight / 2)),
+  }
+}
 
 export const QUADRANTS: Quadrant[] = ['schedule', 'do', 'drop', 'delegate']
 
@@ -132,14 +146,14 @@ export const QUADRANT_META: Record<Quadrant, QuadrantMeta> = {
   },
 }
 
-export function quadrantOrigin(quadrant: Quadrant): { x: number; y: number } {
+export function quadrantOrigin(quadrant: Quadrant, zone: ZoneSize): { x: number; y: number } {
   const meta = QUADRANT_META[quadrant]
-  return { x: meta.column * ZONE_WIDTH, y: meta.row * ZONE_HEIGHT }
+  return { x: meta.column * zone.width, y: meta.row * zone.height }
 }
 
-export function quadrantFromPoint(x: number, y: number): Quadrant {
-  const column = x >= ZONE_WIDTH ? 1 : 0
-  const row = y >= ZONE_HEIGHT ? 1 : 0
+export function quadrantFromPoint(x: number, y: number, zone: ZoneSize): Quadrant {
+  const column = x >= zone.width ? 1 : 0
+  const row = y >= zone.height ? 1 : 0
   if (column === 0) return row === 0 ? 'schedule' : 'drop'
   return row === 0 ? 'do' : 'delegate'
 }

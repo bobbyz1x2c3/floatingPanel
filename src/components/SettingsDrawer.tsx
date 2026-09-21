@@ -127,6 +127,13 @@ export function SettingsDrawer({
             onChange={(value) => onPatch({ showGrid: value })}
           />
         </DrawerRow>
+        <DrawerRow title="完成音效" hint="归档卡片时播一声轻响">
+          <NeuSwitch
+            label="完成音效"
+            checked={settings.soundOnComplete}
+            onChange={(value) => onPatch({ soundOnComplete: value })}
+          />
+        </DrawerRow>
       </div>
 
       <hr className="nm-divider" />

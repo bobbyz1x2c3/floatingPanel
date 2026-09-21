@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   alwaysOnTop: true,
   dimOnBlur: true,
   blurBehind: true,
+  soundOnComplete: true,
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -148,6 +149,7 @@ export function parseState(raw: unknown): BoardState | null {
       alwaysOnTop: settingsRaw.alwaysOnTop !== false,
       dimOnBlur: settingsRaw.dimOnBlur !== false,
       blurBehind: settingsRaw.blurBehind !== false,
+      soundOnComplete: settingsRaw.soundOnComplete !== false,
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

@@ -1,14 +1,7 @@
 import { useMemo } from 'react'
-import type { MouseEvent as ReactMouseEvent } from 'react'
-import {
-  CANVAS_MIN_HEIGHT,
-  CANVAS_MIN_WIDTH,
-  QUADRANTS,
-  QUADRANT_META,
-  ZONE_HEIGHT,
-  ZONE_WIDTH,
-} from '../lib/types'
-import type { Attachment, CardData } from '../lib/types'
+import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import { QUADRANTS, QUADRANT_META } from '../lib/types'
+import type { Attachment, CardData, ZoneSize } from '../lib/types'
 import { CardView } from './CardView'
 import { IconLayers } from './icons'
 
@@ -18,8 +11,10 @@ export interface BoardProps {
   query: string
   snap: boolean
   showGrid: boolean
+  zone: ZoneSize
   dropTargetId: string | null
   now: number
+  boardRef: RefObject<HTMLDivElement | null>
   onAddAt: (x: number, y: number) => void
   onUpdate: (id: string, patch: Partial<CardData>, touch?: boolean) => void
   onFocus: (id: string) => void
@@ -47,8 +42,10 @@ export function Board({
   query,
   snap,
   showGrid,
+  zone,
   dropTargetId,
   now,
+  boardRef,
   onAddAt,
   onUpdate,
   onFocus,
@@ -58,16 +55,17 @@ export function Board({
   onNotify,
   onBlurBoard,
 }: BoardProps) {
+  // 画布至少铺满窗口（正好两格宽、两格高），卡片堆到外面时再撑大。
   const bounds = useMemo(() => {
-    let width = CANVAS_MIN_WIDTH
-    let height = CANVAS_MIN_HEIGHT
+    let width = zone.width * 2
+    let height = zone.height * 2
     for (const card of cards) {
       const cardHeight = card.collapsed ? 78 : card.height
       width = Math.max(width, card.x + card.width + 64)
       height = Math.max(height, card.y + cardHeight + 64)
     }
     return { width, height }
-  }, [cards])
+  }, [cards, zone])
 
   const filtered = query.trim().length > 0
   const matchCount = useMemo(
@@ -88,7 +86,7 @@ export function Board({
   }
 
   return (
-    <div className="board nm-scroll">
+    <div className="board nm-scroll" ref={boardRef}>
       <div
         className={`board-canvas${showGrid ? ' is-grid' : ''}`}
         style={{ width: bounds.width, height: bounds.height }}
@@ -106,10 +104,10 @@ export function Board({
                 className="zone"
                 data-tone={meta.tone}
                 style={{
-                  left: meta.column * ZONE_WIDTH,
-                  top: meta.row * ZONE_HEIGHT,
-                  width: ZONE_WIDTH,
-                  height: ZONE_HEIGHT,
+                  left: meta.column * zone.width,
+                  top: meta.row * zone.height,
+                  width: zone.width,
+                  height: zone.height,
                 }}
               >
                 <span className="zone__panel" />
@@ -117,15 +115,21 @@ export function Board({
                   <span className="zone__dot" />
                   <span className="zone__title">{meta.title}</span>
                   <span className="zone__count">{counts.get(key) ?? 0}</span>
-                </span>
-                <span className="zone__hint">
-                  {meta.position} · {meta.hint}
+                  <span className="zone__hint">
+                    {meta.position} · {meta.hint}
+                  </span>
                 </span>
               </div>
             )
           })}
-          <span className="zones__divider zones__divider--v" style={{ left: ZONE_WIDTH }} />
-          <span className="zones__divider zones__divider--h" style={{ top: ZONE_HEIGHT }} />
+          <span
+            className="zones__divider zones__divider--v"
+            style={{ left: zone.width }}
+          />
+          <span
+            className="zones__divider zones__divider--h"
+            style={{ top: zone.height }}
+          />
         </div>
 
         {/*
@@ -141,6 +145,7 @@ export function Board({
             matched={filtered && matchesQuery(card, query)}
             dropTarget={dropTargetId === card.id}
             snap={snap}
+            zone={zone}
             now={now}
             onChange={(patch, touch) => onUpdate(card.id, patch, touch)}
             onBringToFront={() => onFocus(card.id)}
@@ -158,7 +163,7 @@ export function Board({
             </span>
             <p className="empty__title">还没有卡片</p>
             <p className="empty__hint">
-              点击上方「新建卡片」，或在空白处双击，卡片会落到双击所在的象限里。
+              点击上方「新建」，或在空白处双击，卡片会落到双击所在的象限里。
             </p>
           </div>
         ) : null}

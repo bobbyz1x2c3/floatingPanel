@@ -118,78 +118,89 @@ body.is-desktop .shell::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.34'/%3E%3C/svg%3E");
 }
 
-.titlebar {
+.topbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-height: 52px;
-  padding: 0 16px;
+  padding: 0 14px 0 12px;
+  flex-wrap: nowrap;
+  overflow: hidden;
   user-select: none;
 }
 
-.titlebar__brand {
+.topbar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
-  border-radius: 13px;
+  border-radius: 11px;
   color: var(--nm-accent);
   background: rgb(var(--glass-rgb) / var(--glass-fill-control));
   border: 1px solid var(--glass-edge-soft);
   box-shadow: var(--nm-out-sm);
 }
 
-.brand-text {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-
-.brand-text__title {
+.topbar__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--nm-text-strong);
   white-space: nowrap;
 }
 
-.brand-text__meta {
-  font-size: 11.5px;
-  color: var(--nm-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.titlebar__spacer {
-  flex: 1;
+.topbar__spacer {
+  flex: 1 1 auto;
   align-self: stretch;
+  min-width: 4px;
 }
 
-.titlebar__tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.toolbar {
+.topbar__divider {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 16px 14px;
-  flex-wrap: nowrap;
+  width: 1px;
+  height: 20px;
+  margin: 0 1px;
+  background: linear-gradient(180deg, transparent, var(--nm-hair), transparent);
+}
+
+.topbar__label {
+  white-space: nowrap;
+}
+
+.topbar__hits {
+  flex: 0 0 auto;
+}
+
+.topbar__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  margin-left: 1px;
+  padding: 0 5px;
+  border-radius: var(--nm-r-pill);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
+  box-shadow: var(--nm-flat-in);
+  color: var(--nm-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.topbar__badge.is-live {
+  background: var(--nm-accent-soft);
+  box-shadow: none;
+  color: var(--nm-accent);
 }
 
 .search {
@@ -203,23 +214,31 @@ body.is-desktop .shell::before {
 
 .search__icon {
   position: absolute;
-  left: 14px;
+  left: 12px;
   color: var(--nm-muted);
   pointer-events: none;
 }
 
 .search .nm-field {
-  padding-left: 42px;
-  padding-right: 38px;
+  padding-left: 36px;
+  padding-right: 32px;
+}
+
+.topbar .nm-field {
+  min-height: 34px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: 13px;
+  border-radius: var(--nm-r-sm);
 }
 
 .search__clear {
   position: absolute;
-  right: 10px;
+  right: 8px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border: 0;
   border-radius: 50%;
   background: transparent;
@@ -231,16 +250,19 @@ body.is-desktop .shell::before {
   color: var(--nm-text-strong);
 }
 
-.toolbar__spacer {
-  flex: 1;
-}
-
 .board {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 6px 16px 20px;
+  /* 空白处拖动不要拉出一片文本选区，否则接下来的边缘缩放会被原生拖放打断。 */
+  user-select: none;
+}
+
+.board .card__text,
+.board .card__title {
+  user-select: text;
 }
 
 .board-canvas {
@@ -338,7 +360,7 @@ html[data-gesture] .card__title {
   background: transparent;
   color: var(--nm-text-strong);
   font: inherit;
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -399,7 +421,7 @@ html[data-gesture] .card__title {
 
 .card__text {
   flex: 1;
-  min-height: 64px;
+  min-height: 78px;
   padding: 11px 13px;
   border: 0;
   border-radius: var(--nm-r-md);
@@ -408,7 +430,7 @@ html[data-gesture] .card__title {
   box-shadow: var(--nm-in-sm);
   color: var(--nm-text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 15px;
   line-height: 1.62;
   resize: none;
 }
@@ -422,13 +444,13 @@ html[data-gesture] .card__title {
   color: var(--nm-muted);
 }
 
-.card__foot {
+.card__meta {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 16px 13px;
-  font-size: 11px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px 9px 15px;
+  font-size: 11.5px;
   color: var(--nm-muted);
 }
 
@@ -444,23 +466,76 @@ html[data-gesture] .card__title {
   gap: 6px;
 }
 
-.card__resize {
+/* 卡片四周都能拉大小：八条透明热区，光标和拖拽方向一一对应。 */
+.rz {
   position: absolute;
-  right: 7px;
-  bottom: 7px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
-  color: var(--nm-muted);
-  cursor: nwse-resize;
+  z-index: 2;
   touch-action: none;
+  user-select: none;
 }
 
-.card__resize:hover {
-  color: var(--nm-accent);
-  box-shadow: var(--nm-flat);
+.rz--n,
+.rz--s {
+  left: 14px;
+  right: 14px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.rz--n {
+  top: 0;
+}
+
+.rz--s {
+  bottom: 0;
+}
+
+.rz--w,
+.rz--e {
+  top: 14px;
+  bottom: 14px;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.rz--w {
+  left: 0;
+}
+
+.rz--e {
+  right: 0;
+}
+
+.rz--nw,
+.rz--ne,
+.rz--sw,
+.rz--se {
+  width: 16px;
+  height: 16px;
+}
+
+.rz--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.rz--ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.rz--sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.rz--se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
 }
 
 .card.is-collapsed {
@@ -470,7 +545,12 @@ html[data-gesture] .card__title {
 .card.is-collapsed .card__body,
 .card.is-collapsed .card__atts,
 .card.is-collapsed .card__links,
-.card.is-collapsed .card__resize {
+.card.is-collapsed .rz--n,
+.card.is-collapsed .rz--s,
+.card.is-collapsed .rz--nw,
+.card.is-collapsed .rz--ne,
+.card.is-collapsed .rz--sw,
+.card.is-collapsed .rz--se {
   display: none;
 }
 
@@ -496,8 +576,9 @@ html[data-gesture] .card__title {
 
 .zone__head {
   position: absolute;
-  top: 24px;
-  left: 26px;
+  top: 22px;
+  left: 24px;
+  max-width: calc(100% - 52px);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -531,11 +612,15 @@ html[data-gesture] .card__title {
 }
 
 .zone__hint {
-  position: absolute;
-  top: 58px;
-  left: 26px;
-  font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 8px;
+  border-left: 1px solid var(--glass-edge-soft);
   color: var(--nm-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .zones__divider {
@@ -580,7 +665,7 @@ html[data-gesture] .card__title {
   background: color-mix(in srgb, var(--nm-accent) 8%, transparent);
   color: var(--nm-accent);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--nm-t) var(--nm-ease);
@@ -1050,37 +1135,6 @@ html[data-gesture] .card__title {
   color: var(--nm-muted);
 }
 
-/* ---------- 工具栏徽标 ---------- */
-
-.toolbar__label {
-  white-space: nowrap;
-}
-
-.toolbar__hits {
-  flex: 0 0 auto;
-}
-
-.toolbar__badge {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  margin-left: 2px;
-  padding: 0 6px;
-  border-radius: var(--nm-r-pill);
-  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
-  box-shadow: var(--nm-flat-in);
-  color: var(--nm-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.toolbar__badge.is-live {
-  background: var(--nm-accent-soft);
-  box-shadow: none;
-  color: var(--nm-accent);
-}
-
 /* ---------- 图片预览 ---------- */
 
 .preview {
@@ -1192,8 +1246,9 @@ html[data-gesture] .card__title {
     --shell-pad: 10px;
   }
 
-  .toolbar {
-    padding: 0 12px 12px;
+  .topbar {
+    padding: 0 10px;
+    gap: 6px;
   }
 
   .board {
@@ -1202,29 +1257,66 @@ html[data-gesture] .card__title {
 
   .search {
     max-width: none;
+    min-width: 72px;
   }
 }
 
-@media (max-width: 900px) {
-  .toolbar__hits {
+@media (max-width: 1080px) {
+  .topbar__hits {
     display: none;
   }
 }
 
-@media (max-width: 720px) {
-  .toolbar__label {
+@media (max-width: 860px) {
+  .topbar__label {
     display: none;
   }
 
-  .toolbar__add,
-  .toolbar__arrange {
-    width: 44px;
-    min-width: 44px;
+  .topbar__title {
+    display: none;
+  }
+
+  .topbar__add {
+    padding: 0 10px;
+  }
+}
+
+/* 再窄就整体缩一档，保证一行放得下（桌面端最小窗口是 520px 宽）。 */
+@media (max-width: 660px) {
+  .topbar {
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  .topbar__brand {
+    display: none;
+  }
+
+  .topbar .nm-btn--sm {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 12.5px;
+  }
+
+  .topbar .nm-btn--sm.nm-btn--icon {
+    width: 30px;
+    min-width: 30px;
     padding: 0;
   }
 
-  .brand-text__meta {
-    display: none;
+  .search {
+    min-width: 62px;
+  }
+
+  .topbar .nm-field {
+    min-height: 30px;
+    padding-left: 30px;
+    padding-right: 26px;
+    font-size: 12px;
+  }
+
+  .search__icon {
+    left: 9px;
   }
 }
 

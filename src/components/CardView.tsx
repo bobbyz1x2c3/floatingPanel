@@ -10,8 +10,15 @@ import { formatDateTime, formatFileSize, formatRelativeShort } from '../lib/form
 import { caretIndexFromPoint, findLinkAt, listLinks } from '../lib/links'
 import { openModifier, openTarget } from '../lib/platform'
 import { snapValue } from '../lib/store'
-import { CARD_MIN_HEIGHT, CARD_MIN_WIDTH, QUADRANT_META, quadrantFromPoint } from '../lib/types'
-import type { Attachment, CardData } from '../lib/types'
+import {
+  CARD_MAX_HEIGHT,
+  CARD_MAX_WIDTH,
+  CARD_MIN_HEIGHT,
+  CARD_MIN_WIDTH,
+  QUADRANT_META,
+  quadrantFromPoint,
+} from '../lib/types'
+import type { Attachment, CardData, ZoneSize } from '../lib/types'
 import { NeuButton } from './controls'
 import {
   IconCheck,
@@ -21,7 +28,6 @@ import {
   IconExternal,
   IconFile,
   IconLink,
-  IconResize,
   IconTrash,
 } from './icons'
 
@@ -32,6 +38,7 @@ export interface CardViewProps {
   matched: boolean
   dropTarget: boolean
   snap: boolean
+  zone: ZoneSize
   now: number
   onChange: (patch: Partial<CardData>, touch?: boolean) => void
   onBringToFront: () => void
@@ -52,6 +59,10 @@ interface DragOrigin {
 
 type Gesture = 'idle' | 'drag' | 'resize'
 
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+const RESIZE_EDGES: ResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+
 /** 归档动效时长，和 app.css 里的 card-archive 动画保持一致。 */
 const ARCHIVE_ANIMATION = 460
 
@@ -66,6 +77,7 @@ export function CardView({
   matched,
   dropTarget,
   snap,
+  zone,
   now,
   onChange,
   onBringToFront,
@@ -75,6 +87,7 @@ export function CardView({
   onNotify,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
+  const edgeRef = useRef<ResizeEdge | null>(null)
   const archiveTimer = useRef<number | null>(null)
   const movedRef = useRef(false)
   const pendingFocus = useRef<{ field: HTMLInputElement; clientX: number; clientY: number } | null>(
@@ -83,10 +96,10 @@ export function CardView({
   const [gesture, setGesture] = useState<Gesture>('idle')
   const [archiving, setArchiving] = useState(false)
   const [dropActive, setDropActive] = useState(false)
-  const latest = useRef({ onChange, snap, card })
+  const latest = useRef({ onChange, snap, card, zone })
 
   useEffect(() => {
-    latest.current = { onChange, snap, card }
+    latest.current = { onChange, snap, card, zone }
   })
 
   useEffect(() => {
@@ -111,28 +124,59 @@ export function CardView({
     const handleMove = (event: PointerEvent) => {
       const origin = originRef.current
       if (!origin) return
-      const { onChange: change, snap: snapping, card: current } = latest.current
       const deltaX = event.clientX - origin.pointerX
       const deltaY = event.clientY - origin.pointerY
 
       if (gesture === 'drag') {
+        const { onChange: change, snap: snapping, card: current, zone: area } = latest.current
         const x = Math.max(-600, snapValue(origin.startX + deltaX, snapping))
         const y = Math.max(-600, snapValue(origin.startY + deltaY, snapping))
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) movedRef.current = true
         const patch: Partial<CardData> = { x, y }
-        const zone = quadrantFromPoint(x + current.width / 2, y + current.height / 2)
-        if (zone !== current.quadrant) patch.quadrant = zone
+        const next = quadrantFromPoint(x + current.width / 2, y + current.height / 2, area)
+        if (next !== current.quadrant) patch.quadrant = next
         change(patch, false)
         return
       }
 
-      change(
-        {
-          width: Math.max(CARD_MIN_WIDTH, snapValue(origin.startWidth + deltaX, snapping)),
-          height: Math.max(CARD_MIN_HEIGHT, snapValue(origin.startHeight + deltaY, snapping)),
-        },
-        false,
-      )
+      const edge = edgeRef.current
+      if (!edge) return
+      const { onChange: change, snap: snapping } = latest.current
+      let x = origin.startX
+      let y = origin.startY
+      let width = origin.startWidth
+      let height = origin.startHeight
+
+      if (edge.includes('e')) width = snapValue(origin.startWidth + deltaX, snapping)
+      if (edge.includes('s')) height = snapValue(origin.startHeight + deltaY, snapping)
+      if (edge.includes('w')) {
+        x = snapValue(origin.startX + deltaX, snapping)
+        width = origin.startX + origin.startWidth - x
+      }
+      if (edge.includes('n')) {
+        y = snapValue(origin.startY + deltaY, snapping)
+        height = origin.startY + origin.startHeight - y
+      }
+
+      // 拖过头的方向要让对面那条边钉住，所以改尺寸的同时要回推 x / y。
+      if (width < CARD_MIN_WIDTH) {
+        width = CARD_MIN_WIDTH
+        if (edge.includes('w')) x = origin.startX + origin.startWidth - width
+      }
+      if (height < CARD_MIN_HEIGHT) {
+        height = CARD_MIN_HEIGHT
+        if (edge.includes('n')) y = origin.startY + origin.startHeight - height
+      }
+      if (width > CARD_MAX_WIDTH) {
+        width = CARD_MAX_WIDTH
+        if (edge.includes('w')) x = origin.startX + origin.startWidth - width
+      }
+      if (height > CARD_MAX_HEIGHT) {
+        height = CARD_MAX_HEIGHT
+        if (edge.includes('n')) y = origin.startY + origin.startHeight - height
+      }
+
+      change({ x, y, width, height }, false)
     }
 
     const finish = () => {
@@ -145,6 +189,7 @@ export function CardView({
         if (index >= 0) pending.field.setSelectionRange(index, index)
       }
       originRef.current = null
+      edgeRef.current = null
       setGesture('idle')
     }
 
@@ -191,11 +236,17 @@ export function CardView({
     } else {
       pendingFocus.current = null
     }
+    edgeRef.current = null
     beginGesture(event, 'drag')
   }
 
-  const handleResizePointerDown = (event: ReactPointerEvent<HTMLSpanElement>) => {
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLSpanElement>, edge: ResizeEdge) => {
+    // 页面上如果已经有文本选区，不拦掉默认行为的话浏览器会开始一次原生拖放，
+    // 指针序列会被 dragstart 打断，缩放就只走了一步。
+    event.preventDefault()
     event.stopPropagation()
+    pendingFocus.current = null
+    edgeRef.current = edge
     beginGesture(event, 'resize')
   }
 
@@ -271,7 +322,7 @@ export function CardView({
     openHref(attachment.src)
   }
 
-  const zone = QUADRANT_META[card.quadrant]
+  const area = QUADRANT_META[card.quadrant]
 
   const classes = [
     'card',
@@ -306,7 +357,7 @@ export function CardView({
       onDragLeave={handleDragLeave}
     >
       <div className="card__head" onPointerDown={handleHeadPointerDown}>
-        <span className="card__dot" title={`${zone.position} · ${zone.title}`} aria-hidden="true" />
+        <span className="card__dot" title={`${area.position} · ${area.title}`} aria-hidden="true" />
         <input
           className="card__title"
           value={card.title}
@@ -325,7 +376,7 @@ export function CardView({
               onChange({ collapsed: !card.collapsed })
             }}
           >
-            {card.collapsed ? <IconChevronDown size={15} /> : <IconChevronUp size={15} />}
+            {card.collapsed ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
           </NeuButton>
           <NeuButton
             iconOnly
@@ -335,9 +386,27 @@ export function CardView({
             aria-label="删除卡片"
             onClick={onRemove}
           >
-            <IconTrash size={15} />
+            <IconTrash size={16} />
           </NeuButton>
         </div>
+      </div>
+
+      <div className="card__meta">
+        <span className="card__time" title={`最后更新 ${formatDateTime(card.updatedAt)}`}>
+          更新于 {formatRelativeShort(card.updatedAt, now)}
+        </span>
+        <NeuButton
+          size="sm"
+          variant="primary"
+          className="card__confirm"
+          disabled={archiving}
+          aria-label="完成并归档这张卡片"
+          title="完成并归档这张卡片"
+          onClick={handleArchive}
+        >
+          <IconCheck size={15} />
+          完成
+        </NeuButton>
       </div>
 
       <div className="card__body">
@@ -438,32 +507,16 @@ export function CardView({
         </div>
       ) : null}
 
-      <div className="card__foot">
-        <span className="card__time" title={`最后更新 ${formatDateTime(card.updatedAt)}`}>
-          更新于 {formatRelativeShort(card.updatedAt, now)}
-        </span>
-        <NeuButton
-          size="sm"
-          variant="primary"
-          className="card__confirm"
-          disabled={archiving}
-          aria-label="完成并归档这张卡片"
-          title="完成并归档这张卡片"
-          onClick={handleArchive}
-        >
-          <IconCheck size={15} />
-          完成
-        </NeuButton>
-      </div>
-
-      <span
-        className="card__resize"
-        title="调整大小"
-        role="presentation"
-        onPointerDown={handleResizePointerDown}
-      >
-        <IconResize size={14} />
-      </span>
+      {RESIZE_EDGES.map((edge) => (
+        <span
+          key={edge}
+          className={`rz rz--${edge}`}
+          role="presentation"
+          draggable={false}
+          title="拖动边缘调整大小"
+          onPointerDown={(event) => handleResizePointerDown(event, edge)}
+        />
+      ))}
     </article>
   )
 }
