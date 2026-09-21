@@ -26,7 +26,7 @@ fn path_info(path: String) -> Result<PathInfo, String> {
     })
 }
 
-fn mime_for(path: &str) -> &'static str {
+pub fn mime_for(path: &str) -> &'static str {
     let lower = path.to_ascii_lowercase();
     if lower.ends_with(".png") {
         "image/png"

@@ -3,7 +3,8 @@
 //! 它和界面共用同一个状态文件（见 `nemufloat_lib::board`），
 //! 界面每 1.2 秒比对一次文件改动，所以 CLI 写完卡片马上就能在窗口里看到。
 
-use nemufloat_lib::board;
+use base64::Engine;
+use nemufloat_lib::{board, mime_for};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -286,19 +287,43 @@ fn attachment_for(path: &str) -> Value {
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| path.to_string());
-    let is_image = {
-        let lower = name.to_ascii_lowercase();
-        [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".svg"]
+    let meta = std::fs::metadata(path);
+    let is_dir = meta.as_ref().map(|value| value.is_dir()).unwrap_or(false);
+    let size = meta.as_ref().map(|value| value.len()).unwrap_or(0);
+    let lower = name.to_ascii_lowercase();
+    let is_image = !is_dir
+        && [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".svg"]
             .iter()
-            .any(|ext| lower.ends_with(ext))
-    };
-    // 界面会自己把图片读成内嵌图，这里只留路径和名字。
+            .any(|ext| lower.ends_with(ext));
+
+    // 图片直接内嵌成 data URL：界面的 CSP 不许加载 file://，留路径会显示成裂图。
+    if is_image {
+        if let Ok(bytes) = std::fs::read(path) {
+            let data_url = format!(
+                "data:{};base64,{}",
+                mime_for(&name),
+                base64::engine::general_purpose::STANDARD.encode(&bytes)
+            );
+            // 界面单个附件的上限是 400 万字符，留点余量。
+            if data_url.len() <= 3_800_000 {
+                return json!({
+                    "id": format!("att-{}", new_id(&[])),
+                    "name": name,
+                    "kind": "image",
+                    "src": data_url,
+                    "size": bytes.len()
+                });
+            }
+        }
+    }
+
+    // 文件夹、非图片、太大的图：留一条能交给系统打开的链接。
     json!({
         "id": format!("att-{}", new_id(&[])),
-        "name": name,
-        "kind": if is_image { "image" } else { "file" },
+        "name": if is_dir { format!("{name}/") } else { name },
+        "kind": "file",
         "src": file_href(path),
-        "size": 0
+        "size": if is_dir { 0 } else { size }
     })
 }
 

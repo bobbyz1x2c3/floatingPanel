@@ -10,5 +10,6 @@ name = "nemu"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "0.23.1"
 nemufloat = { path = ".." }
 serde_json = "1"
