@@ -120,6 +120,13 @@ body.is-desktop .shell::before {
 
 .topbar {
   flex: 0 0 auto;
+  position: relative;
+  z-index: var(--z-topbar);
+  /*
+    右侧那组按钮的固有宽度（下面各断点里跟着实际的显示内容调），
+    搜索框据此算出自己最多能有多宽，免得被按钮压住。
+  */
+  --topbar-reserve: 452px;
   /*
     三列网格：左右两列等宽（1fr），中间那列按内容宽度。
     这样搜索框落在整个菜单栏的正中间，和左右各有多少按钮无关。
@@ -221,8 +228,11 @@ body.is-desktop .shell::before {
 
 .search {
   position: relative;
-  /* 宽度跟着窗口走，但保持在中间那条格里，不会把两侧挤变形。 */
-  width: clamp(120px, 26vw, 330px);
+  /*
+    宽度 = 窗口宽 - 两侧各自要占的宽度（取较大的一侧乘 2）- 内外边距余量。
+    这样搜索框永远是整条菜单栏的中点，同时左右都不会顶到按钮上。
+  */
+  width: clamp(120px, calc(100vw - var(--topbar-reserve) * 2 - 60px), 330px);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -241,6 +251,9 @@ body.is-desktop .shell::before {
 }
 
 .topbar .nm-field {
+  /* 输入框默认按 size 属性撑一个固有宽度，不改掉的话搜索框缩不下去。 */
+  width: 100%;
+  min-width: 0;
   min-height: 34px;
   padding-top: 6px;
   padding-bottom: 6px;
@@ -268,6 +281,7 @@ body.is-desktop .shell::before {
 
 .board {
   position: relative;
+  z-index: var(--z-board);
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -288,6 +302,11 @@ body.is-desktop .shell::before {
 
 .board-canvas {
   position: relative;
+  /*
+    给卡片们一个自己的堆叠上下文：卡片的 z-index 只在这里面比大小，
+    再大也冒不到抽屉、提示条那一层去。
+  */
+  isolation: isolate;
   min-width: 100%;
   min-height: 100%;
   border-radius: var(--nm-r-lg);
@@ -944,7 +963,7 @@ html[data-gesture] .card__title {
   position: absolute;
   top: 62px;
   right: 16px;
-  z-index: 40;
+  z-index: var(--z-drawer);
   width: min(348px, calc(100% - 32px));
   max-height: calc(100% - 84px);
   display: flex;
@@ -1178,7 +1197,7 @@ html[data-gesture] .card__title {
   position: absolute;
   left: 50%;
   bottom: 22px;
-  z-index: 60;
+  z-index: var(--z-toast);
   transform: translateX(-50%);
   padding: 10px 20px;
   border-radius: var(--nm-r-pill);
@@ -1241,7 +1260,12 @@ html[data-gesture] .card__title {
   }
 }
 
-@media (max-width: 860px) {
+/* 窗口不够宽时先收掉「归档」两个字，给搜索框腾地方（数量徽标还留着）。 */
+@media (max-width: 1160px) {
+  .topbar {
+    --topbar-reserve: 420px;
+  }
+
   .topbar__label {
     display: none;
   }
@@ -1249,7 +1273,37 @@ html[data-gesture] .card__title {
   .topbar__title {
     display: none;
   }
+}
 
+@media (max-width: 1080px) {
+  .topbar__divider {
+    display: none;
+  }
+}
+
+/*
+  再窄下去，两侧按钮的固有宽度已经超过「各占一半」能分给它们的份额，
+  网格会把右侧那组挤到搜索框上面去。这时换成普通 flex：
+  两侧按内容排、搜索吃掉剩下的空间——不再严格居中，但保证谁都不压谁。
+*/
+@media (max-width: 1000px) {
+  .topbar {
+    display: flex;
+  }
+
+  .topbar__side--right {
+    margin-left: auto;
+  }
+
+  .topbar__center {
+    /* 基准宽度给 0：中间这段刚好等于「窗口减去两侧」的那点空间，绝不侵占按钮。 */
+    flex: 1 1 0;
+  }
+
+  .search {
+    width: 100%;
+    max-width: 330px;
+  }
 }
 
 /* 再窄就整体缩一档，保证一行放得下（桌面端最小窗口是 520px 宽）。 */

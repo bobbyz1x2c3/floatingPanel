@@ -9,6 +9,16 @@
   --nm-t-fast: 140ms;
   --nm-t: 240ms;
   --nm-t-slow: 420ms;
+  /*
+    层级刻度。卡片自己的 z 每次点击都会往后涨，所以卡片必须被关在一个
+    独立的堆叠上下文里（见 app.css 的 .board-canvas），
+    否则用久了卡片会盖到抽屉和提示条上面去。
+    下面这几个值只在同一个堆叠上下文内比较，和卡片的 z 没有关系。
+  */
+  --z-board: 1;
+  --z-topbar: 20;
+  --z-drawer: 40;
+  --z-toast: 60;
   --nm-grain: 0.5;
   --glass-sat: 170%;
   --glass-blur: 26px;
