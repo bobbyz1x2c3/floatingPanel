@@ -254,7 +254,7 @@ npm run desktop:build
 
 | workflow | 什么时候跑 | 做什么 |
 | --- | --- | --- |
-| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再在 windows-latest 上打 NSIS 安装包传成附件；如果配了签名密钥，`.sig` / `latest.json` 也一起上传 |
+| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再按平台矩阵并行打包并传成同一个版本的附件：Windows（NSIS + MSI）、macOS（Apple Silicon / Intel 两个 dmg）、Linux（AppImage + deb）；配了签名密钥的话 `.sig` / `latest.json` 也一起上传 |
 | `.github/workflows/pages.yml` | `docs/` 有改动、或手动触发、或 Release 完成后自动调一次 | 用 token 把 Release 列表取成 `docs/releases.json`，再把 `docs/` 发到 GitHub Pages |
 
 版本清单是**部署时用 token 生成**的，所以私有仓库也能正常显示，页面自己不需要任何凭证；

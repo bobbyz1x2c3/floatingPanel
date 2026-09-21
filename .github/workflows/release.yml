@@ -1,5 +1,9 @@
 name: Release
 
+# 推一个 v* 标签（或在 Actions 里手动指定 tag）就会：
+#   1) 先把 Release 建出来——这一步很快，也不依赖编译环境，所以即使后面某个平台编译失败，
+#      版本页也不会缺席；
+#   2) 再按平台矩阵并行打包，谁先打完谁先往同一个 Release 传附件。
 on:
   push:
     tags: ["v*"]
@@ -14,27 +18,52 @@ permissions:
   actions: write
 
 jobs:
-  # 先把 Release 建出来：这一步很快，也不依赖任何编译环境，所以即使后面打包失败，
-  # 版本页也不会缺席。
+  # ---------- 1. 先建 Release ----------
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-      - name: 创建 Release
+
+      - name: 解析 tag
+        id: resolve
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: 创建或更新 Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "NemuFloat $TAG" --notes-file .github/release-notes.md
           else
             gh release create "$TAG" --title "NemuFloat $TAG" --notes-file .github/release-notes.md
           fi
 
-  # 再在 Windows 上打安装包并传上去。装了签名密钥就把更新用的产物一起产出来。
+  # ---------- 2. 各平台并行打包 ----------
   bundle:
     needs: release
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            args: "--bundles nsis,msi"
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+            args: "--bundles dmg --target aarch64-apple-darwin"
+            target: aarch64-apple-darwin
+          - name: macOS (Intel)
+            os: macos-latest
+            args: "--bundles dmg --target x86_64-apple-darwin"
+            target: x86_64-apple-darwin
+          - name: Linux x64
+            os: ubuntu-22.04
+            args: "--bundles appimage,deb"
+    runs-on: ${{ matrix.os }}
+    name: 打包 · ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,35 +73,58 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.name }}
 
-      - name: 安装依赖
+      - name: 安装 Linux 依赖
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
+            libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: 安装前端依赖
         run: npm ci
 
-      - name: 打包（Windows 安装包）
+      - name: 打包
         env:
+          # 想产出自动更新用的签名包，就在仓库里配这两个 secret，
+          # 并把 tauri.conf.json 的 bundle.createUpdaterArtifacts 打开。
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run desktop:build -- --bundles nsis
+        run: npm run desktop:build -- ${{ matrix.args }}
 
-      - name: 上传产物
+      - name: 上传这个平台的产物
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          gh release upload $tag src-tauri/target/release/bundle/nsis/*.exe --clobber
-          # 配了签名密钥的话，更新用的 latest.json / *.sig 也一起传上去
-          if (Test-Path src-tauri/target/release/bundle/nsis/latest.json) {
-            gh release upload $tag src-tauri/target/release/bundle/nsis/latest.json --clobber
-          }
-          Get-ChildItem src-tauri/target/release/bundle/nsis/*.sig -ErrorAction SilentlyContinue | ForEach-Object {
-            gh release upload $tag $_.FullName --clobber
-          }
+          tag="${{ needs.release.outputs.tag }}"
+          # 把安装包（以及配了签名时的 .sig / latest.json）一起找出来传上去
+          mapfile -t files < <(find src-tauri/target -path "*/release/bundle/*" -type f \
+            \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" \
+               -o -name "*.deb" -o -name "*.rpm" -o -name "*.sig" -o -name "latest.json" \) \
+            | grep -v -E "/(debug|.tmp)/" | sort)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "没有找到产物，检查一下打包步骤" >&2
+            exit 1
+          fi
+          printf '准备上传：\n%s\n' "${files[@]}"
+          gh release upload "$tag" "${files[@]}" --clobber
 
-      - name: 顺手刷新发布页
+  # ---------- 3. 发布页跟着更新 ----------
+  pages:
+    needs: [release, bundle]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 触发发布页重新部署
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run pages.yml --ref main
+        run: gh workflow run pages.yml --ref main --repo ${{ github.repository }}

@@ -527,6 +527,16 @@ figcaption {
   font-size: 13.5px;
 }
 
+.release__hint {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
+}
+
+.release__hint b {
+  color: var(--fg-strong);
+}
+
 .versions {
   list-style: none;
   margin: 16px 0 0;
