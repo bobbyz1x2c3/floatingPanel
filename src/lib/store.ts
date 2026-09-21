@@ -6,6 +6,7 @@ import {
   CARD_MIN_HEIGHT,
   CARD_MIN_WIDTH,
   GRID_STEP,
+  QUADRANTS,
   QUADRANT_META,
   ZONE_CONTENT_TOP,
   ZONE_INSET,
@@ -35,7 +36,7 @@ export type BoardAction =
   | { type: 'arrange'; zone: ZoneSize }
   | { type: 'rezone'; from: ZoneSize; to: ZoneSize }
   | { type: 'clear' }
-  | { type: 'restoreExamples' }
+  | { type: 'restoreExamples'; zone: ZoneSize }
   | { type: 'archive'; id: string }
   | { type: 'restoreArchived'; id: string; zone: ZoneSize }
   | { type: 'deleteArchived'; id: string }
@@ -181,25 +182,132 @@ function withFront(state: BoardState, id: string): BoardState {
   }
 }
 
-function arrangeCards(cards: CardData[], zone: ZoneSize): CardData[] {
-  if (cards.length === 0) return cards
-  const zoneWidth = zone.width - ZONE_INSET * 2
-  const cursors = new Map<Quadrant, number>()
-  const placed = new Map<string, { x: number; y: number; width: number }>()
-  const ordered = [...cards].sort((a, b) => a.createdAt - b.createdAt)
+interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
-  for (const card of ordered) {
-    const origin = quadrantOrigin(card.quadrant, zone)
-    const width = Math.min(card.width, zoneWidth)
-    const cursor = cursors.get(card.quadrant) ?? ZONE_CONTENT_TOP
-    placed.set(card.id, { x: origin.x + ZONE_INSET, y: origin.y + cursor, width })
-    cursors.set(card.quadrant, cursor + card.height + STACK_GAP)
+/** 收起状态的卡片大概多高，和 app.css 里的 .card.is-collapsed 对应。 */
+const COLLAPSED_HEIGHT = 78
+
+/** 两个矩形之间至少留出 gap 的空隙才算“不打架”。 */
+function apart(a: Rect, b: Rect, gap: number): boolean {
+  return (
+    a.x + a.width + gap <= b.x ||
+    b.x + b.width + gap <= a.x ||
+    a.y + a.height + gap <= b.y ||
+    b.y + b.height + gap <= a.y
+  )
+}
+
+function heightOf(card: CardData): number {
+  return card.collapsed ? COLLAPSED_HEIGHT : card.height
+}
+
+/**
+ * 在某一格里按“从上往下、从左往右”的顺序找第一个放得下的位置。
+ *
+ * 候选位置来自已经摆好的卡片：每一行的上边界，以及每张卡片右侧、下侧再让开一个缝的位置。
+ * 于是被删掉的卡片留下的空当会被后来的卡片补上，而不是一直往下堆一列。
+ * 第一遍要求整张卡片都在格内（不跨过分界线）；实在放不下才允许落到格子下面，
+ * 那一遍不再限制下边界，溢出的卡片同样会左右并排。
+ */
+function findSpot(
+  card: CardData,
+  quadrant: Quadrant,
+  zone: ZoneSize,
+  placed: Rect[],
+): Rect {
+  const origin = quadrantOrigin(quadrant, zone)
+  const left = origin.x + ZONE_INSET
+  const top = origin.y + ZONE_CONTENT_TOP
+  const innerWidth = Math.max(CARD_MIN_WIDTH, zone.width - ZONE_INSET * 2)
+  const bottom = origin.y + zone.height - ZONE_INSET
+  const width = Math.min(card.width, innerWidth)
+  const height = heightOf(card)
+
+  const search = (insideOnly: boolean): Rect | null => {
+    const rows = [top, ...placed.map((item) => item.y + item.height + STACK_GAP)]
+      .filter((y) => y >= top && (!insideOnly || y + height <= bottom))
+      .sort((a, b) => a - b)
+    const columns = [left, ...placed.map((item) => item.x + item.width + STACK_GAP)]
+      .filter((x) => x >= left && x + width <= left + innerWidth)
+      .sort((a, b) => a - b)
+    for (const y of rows) {
+      for (const x of columns) {
+        const candidate: Rect = { x, y, width, height }
+        if (placed.every((item) => apart(candidate, item, STACK_GAP))) return candidate
+      }
+    }
+    return null
   }
 
+  return search(true) ?? search(false) ?? { x: left, y: bottom, width, height }
+}
+
+/**
+ * 给整块板子排位置。按象限从上到下、从左到右依次处理，所有卡片共用一份“已占位置”，
+ * 所以满出来的卡片不会压到下面那一格的卡片上。
+ */
+function packBoard(cards: CardData[], zone: ZoneSize): Map<string, Rect> {
+  const groups = new Map<Quadrant, CardData[]>()
+  // 先来后到：整理的结果只跟创建顺序有关，多按几次「整理」不会来回跳。
+  for (const card of [...cards].sort((a, b) => a.createdAt - b.createdAt)) {
+    const list = groups.get(card.quadrant)
+    if (list) list.push(card)
+    else groups.set(card.quadrant, [card])
+  }
+
+  const placed: Rect[] = []
+  const spots = new Map<string, Rect>()
+  for (const quadrant of QUADRANTS) {
+    for (const card of groups.get(quadrant) ?? []) {
+      const rect = findSpot(card, quadrant, zone, placed)
+      placed.push(rect)
+      spots.set(card.id, rect)
+    }
+  }
+  return spots
+}
+
+function arrangeCards(cards: CardData[], zone: ZoneSize): CardData[] {
+  if (cards.length === 0) return cards
+  const spots = packBoard(cards, zone)
   return cards.map((card) => {
-    const spot = placed.get(card.id)
+    const spot = spots.get(card.id)
     return spot ? { ...card, x: spot.x, y: spot.y, width: spot.width } : card
   })
+}
+
+/** 新卡片没给坐标时，直接塞进这一格里第一个空位。 */
+function freeSpotFor(
+  cards: CardData[],
+  quadrant: Quadrant,
+  zone: ZoneSize,
+  width: number,
+  height: number,
+): { x: number; y: number; width: number } | null {
+  const probe: CardData = {
+    id: '__probe__',
+    title: '',
+    body: '',
+    tone: QUADRANT_META[quadrant].tone,
+    quadrant,
+    attachments: [],
+    x: 0,
+    y: 0,
+    width,
+    height,
+    z: 0,
+    collapsed: false,
+    // 排到最后：新卡片只占现成的空位，不会把已有的卡片挤走。
+    createdAt: Number.MAX_SAFE_INTEGER,
+    updatedAt: 0,
+  }
+  const spot = packBoard([...cards, probe], zone).get(probe.id)
+  return spot ? { x: spot.x, y: spot.y, width: spot.width } : null
 }
 
 /**
@@ -230,16 +338,24 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
 
     case 'add': {
       const quadrant = action.quadrant ?? 'schedule'
-      const index = state.cards.filter((card) => card.quadrant === quadrant).length
-      const spot = cascade(quadrant, index, action.zone)
       const nextZ = state.nextZ + 1
+      // 没指定坐标时，先在这一格里找空位，找不到才退回角上的层叠位置。
+      const free =
+        action.x === undefined || action.y === undefined
+          ? freeSpotFor(state.cards, quadrant, action.zone, CARD_DEFAULT_WIDTH, CARD_DEFAULT_HEIGHT)
+          : null
+      const fallback = cascade(
+        quadrant,
+        state.cards.filter((card) => card.quadrant === quadrant).length,
+        action.zone,
+      )
       const card = buildCard({
         title: action.title ?? '新卡片',
         body: action.body ?? '',
         attachments: action.attachments,
         quadrant,
-        x: action.x ?? spot.x,
-        y: action.y ?? spot.y,
+        x: action.x ?? free?.x ?? fallback.x,
+        y: action.y ?? free?.y ?? fallback.y,
         z: nextZ,
       })
       return { ...state, cards: [...state.cards, card], nextZ, activeId: card.id }
@@ -317,7 +433,8 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       return { ...state, cards: [], activeId: null }
 
     case 'restoreExamples': {
-      const cards = exampleCards()
+      // 示例卡片也走同一套排布，落到真实的窗口尺寸里。
+      const cards = arrangeCards(exampleCards(), action.zone)
       return { ...state, cards, nextZ: cards.length + 1, activeId: null }
     }
 
@@ -339,7 +456,15 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       const { archivedAt, ...restored } = card
       void archivedAt
       const index = state.cards.filter((item) => item.quadrant === restored.quadrant).length
-      const spot = cascade(restored.quadrant, index, action.zone)
+      // 从归档恢复：优先占现成的空位，位子实在没有了才按层叠位置放。
+      const free = freeSpotFor(
+        state.cards,
+        restored.quadrant,
+        action.zone,
+        restored.width,
+        restored.height,
+      )
+      const spot = free ?? cascade(restored.quadrant, index, action.zone)
       const nextZ = state.nextZ + 1
       const revived: CardData = { ...restored, x: spot.x, y: spot.y, z: nextZ, updatedAt: Date.now() }
       return {

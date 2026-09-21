@@ -642,7 +642,7 @@ export function App() {
             onCollapseAll={() => dispatch({ type: 'collapseAll', value: true })}
             onClear={requestClear}
             onRestore={() => {
-              dispatch({ type: 'restoreExamples' })
+              dispatch({ type: 'restoreExamples', zone: zoneRef.current })
               notify('已恢复示例卡片')
             }}
             onClose={() => setSettingsOpen(false)}

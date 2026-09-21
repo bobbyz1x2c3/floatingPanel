@@ -149,7 +149,7 @@ export function TopBar({
           iconOnly
           size="sm"
           aria-label="整理布局"
-          title="按象限重新排列卡片"
+          title="按象限重新排列：优先填满每格里的空位"
           onClick={onArrange}
           disabled={cardCount === 0}
         >
