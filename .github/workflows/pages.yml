@@ -1,0 +1,52 @@
+name: Pages
+
+# 发布页（docs/）部署到 GitHub Pages。
+# 私有仓库也能用：版本清单是这一步用 token 提前取好、写成静态 json 的，
+# 页面本身不需要带着凭证去调 API。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+        with:
+          # 首次运行自动把 Pages 打开（需要仓库有 Pages 权限：公开仓库，或 Pro 及以上的私有仓库）
+          enablement: true
+
+      - name: 生成版本清单
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p docs
+          if ! gh api "repos/${{ github.repository }}/releases?per_page=20" > docs/releases.json 2>/dev/null; then
+            echo '[]' > docs/releases.json
+          fi
+          echo "releases.json 里版本数：$(node -e 'console.log(require("./docs/releases.json").length)' 2>/dev/null || echo '?')"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

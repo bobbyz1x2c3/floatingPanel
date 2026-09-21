@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   # 先把 Release 建出来：这一步很快，也不依赖任何编译环境，所以即使后面打包失败，
@@ -70,3 +71,8 @@ jobs:
           Get-ChildItem src-tauri/target/release/bundle/nsis/*.sig -ErrorAction SilentlyContinue | ForEach-Object {
             gh release upload $tag $_.FullName --clobber
           }
+
+      - name: 顺手刷新发布页
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml --ref main

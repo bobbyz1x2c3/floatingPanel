@@ -245,6 +245,30 @@ npm run desktop:build
 
 ## 动效
 
+## 发布页
+
+`docs/` 是一张独立的发布页（纯静态、零依赖，视觉沿用 app 里的玻璃 + 新拟态）：
+版本号、按平台给下载按钮、更新说明、历史版本列表、从源码构建的步骤、CLI 用法。
+
+它由两条 workflow 带起来：
+
+| workflow | 什么时候跑 | 做什么 |
+| --- | --- | --- |
+| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再在 windows-latest 上打 NSIS 安装包传成附件；如果配了签名密钥，`.sig` / `latest.json` 也一起上传 |
+| `.github/workflows/pages.yml` | `docs/` 有改动、或手动触发、或 Release 完成后自动调一次 | 用 token 把 Release 列表取成 `docs/releases.json`，再把 `docs/` 发到 GitHub Pages |
+
+版本清单是**部署时用 token 生成**的，所以私有仓库也能正常显示，页面自己不需要任何凭证；
+本地直接打开 `docs/index.html` 时读不到清单，会退回显示「还没有可下载的版本」和自建步骤。
+
+开启 Pages 需要仓库具备 Pages 权限：公开仓库可以，私有仓库需要 GitHub Pro 及以上。
+workflow 里带了 `enablement: true`，第一次跑会自动把 Pages 打开。
+
+本地看效果：
+
+```bash
+python -m http.server 4180 --directory docs   # 然后打开 http://127.0.0.1:4180/
+```
+
 界面上的动效都集中在 `src/styles/app.css`，并且全部尊重系统的「减少动态效果」（`prefers-reduced-motion`）：
 
 | 位置 | 效果 |

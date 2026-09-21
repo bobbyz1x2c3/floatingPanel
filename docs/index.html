@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>NemuFloat · 悬浮卡片 · 发布页</title>
+    <meta
+      name="description"
+      content="NemuFloat 是一块磨砂玻璃 + 新拟态风格的跨平台悬浮卡片面板：四象限待办、归档、图片标注预览窗、音频响应频谱，还带一个给 agent 用的命令行。"
+    />
+    <meta property="og:title" content="NemuFloat · 悬浮卡片" />
+    <meta
+      property="og:description"
+      content="磨砂玻璃 + 新拟态的跨平台悬浮卡片面板，带四象限整理、图片标注预览窗、音频响应和 CLI。"
+    />
+    <meta property="og:image" content="assets/board-dark.jpg" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="aura" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="brand__mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="3.4" y="6.2" width="14.4" height="11" rx="3" stroke="currentColor" stroke-width="1.7" />
+            <path d="M7.6 3.4h10.6a2.8 2.8 0 0 1 2.8 2.8v9.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" opacity="0.55" />
+          </svg>
+        </span>
+        <span class="brand__name">NemuFloat<em>悬浮卡片</em></span>
+      </a>
+      <nav class="nav">
+        <a href="#features">功能</a>
+        <a href="#shots">截图</a>
+        <a href="#download">下载</a>
+        <a href="#cli">命令行</a>
+      </nav>
+      <button class="nm nm--icon" id="theme" type="button" aria-label="切换主题" title="切换主题">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2.8v2.1M12 19.1v2.1M4.5 4.5l1.5 1.5M18 18l1.5 1.5M2.8 12h2.1M19.1 12h2.1M4.5 19.5 6 18M18 6l1.5-1.5" />
+        </svg>
+      </button>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="glass hero__card">
+          <p class="badge" id="version-badge">最新版本 <b>—</b></p>
+          <h1>一块浮在桌面上的<br /><span class="accent">磨砂玻璃卡片板</span></h1>
+          <p class="lede">
+            磨砂玻璃背景 + 新拟态控件，用「紧急 / 重要」四象限把事情摆开。
+            原生 Windows / macOS / Linux 悬浮窗，同一套界面也能跑在浏览器里。
+          </p>
+          <div class="cta">
+            <a class="nm nm--primary" id="primary-download" href="#download">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 4v11" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M4.5 19.5h15" />
+              </svg>
+              <span id="primary-label">下载最新版</span>
+            </a>
+            <a class="nm" href="#download">全部版本</a>
+            <a class="nm nm--ghost" id="repo-link" href="https://github.com/bobbyz1x2c3/floatingPanel">源码仓库</a>
+          </div>
+          <dl class="facts">
+            <div><dt>平台</dt><dd>Windows · macOS · Linux · Web</dd></div>
+            <div><dt>技术栈</dt><dd>Tauri 2 + React 19 + Vite</dd></div>
+            <div><dt>运行时依赖</dt><dd>零（全部手写 CSS / SVG）</dd></div>
+          </dl>
+        </div>
+
+        <figure class="glass shot shot--hero">
+          <img src="assets/board-dark.jpg" alt="NemuFloat 深色主题的卡片面板，底部有一层音频频谱" width="1600" height="960" />
+          <figcaption>深色主题 · 底部是跟着系统声音跳动的频谱</figcaption>
+        </figure>
+      </section>
+
+      <section id="features" class="section">
+        <h2>它有什么</h2>
+        <div class="grid">
+          <article class="glass card">
+            <h3><span class="dot" data-tone="rose"></span>四象限画布</h3>
+            <p>卡片跨过分界线就自动换象限、渐变强调色。四周都能拉伸，边缘就是缩放手柄。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="sky"></span>整理会找空位</h3>
+            <p>「整理」按从上往下、从左往右找每格第一个放得下的位置：删卡留下的空当会被补上，同一行能并排就并排。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="amber"></span>归档与附件</h3>
+            <p>完成即归档，带归档时间与数量。粘贴截图、拖入图片 / 文件 / 文件夹，网址自动认成链接。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="violet"></span>独立图片预览窗</h3>
+            <p>点缩略图开一个自己的窗口：铅笔 / 矩形 / 圆形 / 箭头临时标注，滚轮缩放、右键拖拽、可置顶。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="mint"></span>音频响应</h3>
+            <p>抓系统播放通道（WASAPI 回环），在面板背景铺一层跟着音乐跳动的频谱。音频不出进程、不落盘。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="graphite"></span>给 agent 用的 CLI</h3>
+            <p><code>nemu</code> 直接读写卡片，界面和命令行共用一份状态文件，写完 1~2 秒画面就更新。还附了一份 skill。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="shots" class="section">
+        <h2>长什么样</h2>
+        <div class="shots">
+          <figure class="glass shot">
+            <img src="assets/board-light.jpg" alt="浅色主题的卡片面板" width="1600" height="960" loading="lazy" />
+            <figcaption>浅色主题 · 搜索框居中，右上角是窗口按钮</figcaption>
+          </figure>
+          <figure class="glass shot">
+            <img src="assets/preview.jpg" alt="图片预览窗，带铅笔、矩形、圆形、箭头标注工具" width="1200" height="840" loading="lazy" />
+            <figcaption>图片预览窗 · 临时标注、缩放、置顶都是独立窗口</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="download" class="section">
+        <h2>下载</h2>
+        <div class="glass release">
+          <div class="release__head">
+            <div>
+              <p class="release__label">最新版本</p>
+              <p class="release__version" id="latest-version">—</p>
+              <p class="release__meta" id="latest-meta">正在读取版本信息…</p>
+            </div>
+            <div class="release__actions" id="latest-actions"></div>
+          </div>
+          <details class="release__notes" id="latest-notes" hidden>
+            <summary>这一版改了什么</summary>
+            <div class="release__body" id="latest-body"></div>
+          </details>
+          <p class="release__empty" id="release-empty" hidden>
+            还没有可下载的版本。发行包由 GitHub Actions 在打标签时自动构建；
+            你也可以在 <a id="actions-link" href="https://github.com/bobbyz1x2c3/floatingPanel/actions">Actions</a> 里看构建进度，
+            或者按下面的步骤自己编一个。
+          </p>
+        </div>
+
+        <div class="glass release release--list">
+          <div class="release__head">
+            <p class="release__label">全部版本</p>
+            <a class="nm nm--sm" id="releases-link" href="https://github.com/bobbyz1x2c3/floatingPanel/releases">在 GitHub 上查看</a>
+          </div>
+          <ul class="versions" id="version-list"></ul>
+          <p class="release__empty" id="list-empty">暂时没有历史版本。</p>
+        </div>
+
+        <div class="glass build">
+          <h3>从源码构建</h3>
+          <pre><code>git clone https://github.com/bobbyz1x2c3/floatingPanel.git
+cd floatingPanel
+npm install
+npm run desktop:build     <span class="c"># 打包当前平台的安装包</span>
+npm run cli:build         <span class="c"># 顺带编一个 nemu 命令行</span></code></pre>
+          <p class="muted">
+            需要 Node.js 20+ 与 Rust 1.77+；Windows 上还要有 WebView2（Win11 自带）。
+            打包脚本会自动下载 WiX / NSIS。
+          </p>
+        </div>
+      </section>
+
+      <section id="cli" class="section">
+        <h2>命令行与 skill</h2>
+        <div class="two">
+          <div class="glass card card--wide">
+            <h3>nemu</h3>
+            <pre><code>nemu list                       <span class="c"># 看板子上有什么</span>
+nemu add --title "写周报" --quadrant schedule
+nemu search 周报
+nemu done '#2'                  <span class="c"># 完成并归档</span>
+nemu board --json               <span class="c"># 给机器读</span></code></pre>
+            <p>
+              选择器支持完整 id、id 前缀和 <code>#序号</code>；所有命令都能加 <code>--json</code>。
+              状态文件在 <code>%APPDATA%\app.nemufloat.desktop\board.json</code>（桌面端），
+              界面每 1.2 秒比一次修改时间，所以命令行写完窗口里马上就有。
+            </p>
+          </div>
+          <div class="glass card card--wide">
+            <h3>skills/nemufloat-cards</h3>
+            <p>
+              仓库里带了一份给 agent 用的 skill，把命令、象限含义和常用流程写成一页说明。
+              放进 <code>~/.codex/skills/</code> 之后，你跟 agent 说「把这几件事记到悬浮卡片上」，
+              它就知道该调 <code>nemu</code>。
+            </p>
+            <pre><code>npm run cli:build
+nemu path                       <span class="c"># 状态文件在哪</span></code></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>NemuFloat · MIT · <a href="https://github.com/bobbyz1x2c3/floatingPanel">bobbyz1x2c3/floatingPanel</a></p>
+      <p class="muted">桌面端内置自动更新：设置里可以手动检查，也可以让它启动时自己问一次。</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
