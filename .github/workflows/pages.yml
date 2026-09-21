@@ -44,6 +44,11 @@ jobs:
           fi
           echo "releases.json 里版本数：$(node -e 'console.log(require("./docs/releases.json").length)' 2>/dev/null || echo '?')"
 
+      - name: 给静态资源加上本次部署的版本号
+        # GitHub Pages 会给 css/js 设 10 分钟缓存，带上 commit 号做查询串，
+        # 部署完访问者立刻就能拿到新脚本，不用等缓存过期。
+        run: sed -i "s/__V__/${GITHUB_SHA::8}/g" docs/index.html && grep -o "?v=[a-f0-9]*" docs/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
