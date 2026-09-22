@@ -38,13 +38,11 @@ export interface ArchivedCard extends CardData {
 export interface Settings {
   theme: ThemeMode
   accent: CardTone
-  panelOpacity: number
   grain: number
   frost: number
   snapToGrid: boolean
   showGrid: boolean
   alwaysOnTop: boolean
-  blurBehind: boolean
   soundOnComplete: boolean
   /** 跟着电脑播放的声音做频谱动效（桌面端）。 */
   audioReactive: boolean

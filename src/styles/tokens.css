@@ -1,3 +1,16 @@
+/*
+  界面字体：得意黑（Smiley Sans，SIL OFL 1.1）。
+  只留了 woff2 一份——Tauri 用的是 Chromium，现代浏览器也都吃 woff2，
+  otf / ttf 那几份是重复的，删掉省 5 MB。
+*/
+@font-face {
+  font-family: 'Smiley Sans';
+  src: url('../../fonts/SmileySans-Oblique.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --nm-ease: cubic-bezier(0.34, 1.16, 0.64, 1);
   --nm-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);

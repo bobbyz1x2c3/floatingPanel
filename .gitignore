@@ -4,5 +4,7 @@ work
 .npm-cache
 src-tauri/target
 src-tauri/gen
+# 打包前从 target 拷过来的 nemu 二进制（安装包资源，不进仓库；目录本身要留着）
+src-tauri/bin/nemu*
 *.log
 .DS_Store

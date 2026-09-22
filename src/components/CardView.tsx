@@ -45,11 +45,15 @@ export interface CardViewProps {
   onBringToFront: () => void
   onRemove: () => void
   onArchive: () => void
-  onCompleteSound: () => void
+  onComplete: () => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   /** 在列表里的序号：用来给入场动效排队，一叠卡片依次落下来。 */
   enterIndex?: number
+  /** 正在「整理」：这时候卡片换位置要走过渡，而不是瞬移。 */
+  moving?: boolean
+  /** 刚新建出来的卡片：播一个展开动效。 */
+  isNew?: boolean
 }
 
 interface DragOrigin {
@@ -71,6 +75,10 @@ const RESIZE_EDGES: ResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 const ARCHIVE_ANIMATION = 460
 /** 删除动效时长，和 app.css 里的 card-out 保持一致。 */
 const REMOVE_ANIMATION = 220
+/** 收起后的高度，和 app.css 里 .card__head 的实际高度对应（收起时卡片就只剩标题栏）。 */
+const COLLAPSED_HEIGHT = 58
+/** 收起 / 展开的过渡时长，和 app.css 里的 is-toggling 一致。 */
+const TOGGLE_ANIMATION = 280
 
 function hasOpenModifier(event: { ctrlKey: boolean; metaKey: boolean }): boolean {
   return event.ctrlKey || event.metaKey
@@ -89,10 +97,12 @@ export function CardView({
   onBringToFront,
   onRemove,
   onArchive,
-  onCompleteSound,
+  onComplete,
   onPreview,
   onNotify,
   enterIndex = 0,
+  moving = false,
+  isNew = false,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
   const edgeRef = useRef<ResizeEdge | null>(null)
@@ -104,6 +114,7 @@ export function CardView({
   const [gesture, setGesture] = useState<Gesture>('idle')
   const [archiving, setArchiving] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [toggling, setToggling] = useState(false)
   const [dropActive, setDropActive] = useState(false)
   const latest = useRef({ onChange, snap, card, zone })
 
@@ -298,9 +309,17 @@ export function CardView({
   const handleArchive = () => {
     if (archiving) return
     // 音效跟着点击走，不等归档动效播完。
-    onCompleteSound()
+    onComplete()
     setArchiving(true)
     archiveTimer.current = window.setTimeout(() => onArchive(), ARCHIVE_ANIMATION)
+  }
+
+  /** 收起 / 展开：临时挂一个类，让高度这段变化走过渡（平时高度是跟手拖的，不能有过渡）。 */
+  const handleToggleCollapse = () => {
+    onBringToFront()
+    setToggling(true)
+    onChange({ collapsed: !card.collapsed })
+    archiveTimer.current = window.setTimeout(() => setToggling(false), TOGGLE_ANIMATION)
   }
 
   /** 删除也先播一下缩小淡出，不然卡片会凭空消失。 */
@@ -352,6 +371,10 @@ export function CardView({
     matched && 'is-match',
     archiving && 'is-archiving',
     removing && 'is-removing',
+    toggling && 'is-toggling',
+    moving && 'is-moving',
+    isNew && 'is-new',
+    gesture === 'drag' && snap && 'is-snapping',
     (dropActive || dropTarget) && 'is-drop',
   ]
     .filter(Boolean)
@@ -367,7 +390,8 @@ export function CardView({
         left: card.x,
         top: card.y,
         width: card.width,
-        height: card.collapsed ? undefined : card.height,
+        // 显式给高度（收起时是标题栏那一档），这样收起 / 展开才有得过渡。
+        height: card.collapsed ? COLLAPSED_HEIGHT : card.height,
         zIndex: card.z,
         ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
       } as CSSProperties}
@@ -404,10 +428,7 @@ export function CardView({
             size="sm"
             title={card.collapsed ? '展开卡片' : '收起卡片'}
             aria-label={card.collapsed ? '展开卡片' : '收起卡片'}
-            onClick={() => {
-              onBringToFront()
-              onChange({ collapsed: !card.collapsed })
-            }}
+            onClick={handleToggleCollapse}
           >
             {card.collapsed ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
           </NeuButton>

@@ -458,7 +458,83 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
           </span>
         ) : null}
         <span className="pv__grip" />
-        {/* 缩放放在标题栏右侧、置顶左边：标注工具收起来之后这里也一直在。 */}
+        {/*
+          标注工具直接并进标题栏，整个窗口只有这一条栏。
+          窗口变窄时按「颜色 → 撤销清空 → 工具按钮」的顺序依次收起（见 preview.css）。
+        */}
+        {/* 注意别叫 pv__ink —— 那是画标注的 canvas */}
+        <div className="pv__group pv__inktools">
+          <NeuButton
+            iconOnly
+            size="sm"
+            className="pv__toggle"
+            aria-expanded={toolsOpen}
+            aria-controls="pv-tools"
+            aria-label={toolsOpen ? '收起标注工具' : '展开标注工具'}
+            title={toolsOpen ? '收起标注工具（收起后左键也用来平移）' : '展开标注工具'}
+            onClick={() => setToolsOpen((open) => !open)}
+          >
+            {toolsOpen ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
+          </NeuButton>
+
+          {toolsOpen ? (
+            <>
+              <div className="pv__group pv__picks" id="pv-tools" role="group" aria-label="标注工具">
+                {TOOLS.map(({ key, label, Icon }) => (
+                  <NeuButton
+                    key={key}
+                    iconOnly
+                    size="sm"
+                    active={tool === key}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => setTool(key)}
+                  >
+                    <Icon size={16} />
+                  </NeuButton>
+                ))}
+              </div>
+              <div className="pv__group pv__colors" role="group" aria-label="标注颜色">
+                {COLORS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`pv__swatch${color === value ? ' is-active' : ''}`}
+                    style={{ background: value }}
+                    aria-label={`颜色 ${value}`}
+                    aria-pressed={color === value}
+                    title="标注颜色"
+                    onClick={() => setColor(value)}
+                  />
+                ))}
+              </div>
+              <div className="pv__group pv__undo">
+                <NeuButton
+                  iconOnly
+                  size="sm"
+                  disabled={count === 0}
+                  aria-label="撤销上一笔"
+                  title="撤销上一笔（Ctrl+Z）"
+                  onClick={undo}
+                >
+                  <IconUndo size={16} />
+                </NeuButton>
+                <NeuButton
+                  iconOnly
+                  size="sm"
+                  disabled={count === 0}
+                  aria-label="清空标注"
+                  title="清空全部标注"
+                  onClick={clearAll}
+                >
+                  <IconEraser size={16} />
+                </NeuButton>
+              </div>
+            </>
+          ) : null}
+        </div>
+        <span className="pv__rule" aria-hidden="true" />
+        {/* 缩放紧挨着窗口按钮：调窗口大小时鼠标不用跑半个屏幕。 */}
         <div className="pv__group pv__group--zoom">
           <NeuButton
             iconOnly
@@ -543,76 +619,6 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
           <IconClose size={16} />
         </NeuButton>
       </header>
-
-      <div className={`pv__tools${toolsOpen ? '' : ' is-collapsed'}`}>
-        <NeuButton
-          size="sm"
-          className="pv__toggle"
-          aria-expanded={toolsOpen}
-          aria-controls="pv-tools"
-          aria-label={toolsOpen ? '收起标注工具' : '展开标注工具'}
-          title={toolsOpen ? '收起标注工具（收起后左键也用来平移）' : '展开标注工具'}
-          onClick={() => setToolsOpen((open) => !open)}
-        >
-          {toolsOpen ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
-          <span className="pv__toggle-label">{toolsOpen ? '收起标注' : '标注工具'}</span>
-        </NeuButton>
-
-        {toolsOpen ? (
-          <div className="pv__group" id="pv-tools" role="group" aria-label="标注工具">
-            {TOOLS.map(({ key, label, Icon }) => (
-              <NeuButton
-                key={key}
-                iconOnly
-                size="sm"
-                active={tool === key}
-                aria-label={label}
-                title={label}
-                onClick={() => setTool(key)}
-              >
-                <Icon size={16} />
-              </NeuButton>
-            ))}
-            <span className="pv__rule" aria-hidden="true" />
-            {COLORS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`pv__swatch${color === value ? ' is-active' : ''}`}
-                style={{ background: value }}
-                aria-label={`颜色 ${value}`}
-                aria-pressed={color === value}
-                title="标注颜色"
-                onClick={() => setColor(value)}
-              />
-            ))}
-            <span className="pv__rule" aria-hidden="true" />
-            <NeuButton
-              iconOnly
-              size="sm"
-              disabled={count === 0}
-              aria-label="撤销上一笔"
-              title="撤销上一笔（Ctrl+Z）"
-              onClick={undo}
-            >
-              <IconUndo size={16} />
-            </NeuButton>
-            <NeuButton
-              iconOnly
-              size="sm"
-              disabled={count === 0}
-              aria-label="清空标注"
-              title="清空全部标注"
-              onClick={clearAll}
-            >
-              <IconEraser size={16} />
-            </NeuButton>
-          </div>
-        ) : null}
-
-        {/* 缩放控件在标题栏那边，这里只放标注相关的东西。 */}
-        <span className="pv__spacer" />
-      </div>
 
       <div className="pv__stage nm-scroll" ref={stageRef} onWheel={handleWheel}>
         <div

@@ -105,18 +105,6 @@ export function SettingsDrawer({
 
       <div className="drawer__group">
         <span className="nm-label">质感</span>
-        <DrawerRow title="面板透明度" hint={formatPercent(settings.panelOpacity)}>
-          <span style={{ width: 132 }}>
-            <NeuSlider
-              min={55}
-              max={100}
-              step={1}
-              value={Math.round(settings.panelOpacity * 100)}
-              aria-label="面板透明度"
-              onChange={(event) => onPatch({ panelOpacity: Number(event.target.value) / 100 })}
-            />
-          </span>
-        </DrawerRow>
         <DrawerRow title="颗粒质感" hint={formatPercent(settings.grain / 0.9)}>
           <span style={{ width: 132 }}>
             <NeuSlider
@@ -188,17 +176,6 @@ export function SettingsDrawer({
             checked={settings.alwaysOnTop}
             disabled={!isDesktop}
             onChange={(value) => onPatch({ alwaysOnTop: value })}
-          />
-        </DrawerRow>
-        <DrawerRow
-          title="毛玻璃背景"
-          hint={isDesktop ? '使用系统亚克力材质（部分平台支持）' : '仅桌面端可用'}
-        >
-          <NeuSwitch
-            label="毛玻璃背景"
-            checked={settings.blurBehind}
-            disabled={!isDesktop}
-            onChange={(value) => onPatch({ blurBehind: value })}
           />
         </DrawerRow>
       </div>

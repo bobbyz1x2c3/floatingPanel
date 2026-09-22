@@ -122,13 +122,6 @@ export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
   return run((win) => win.setAlwaysOnTop(value))
 }
 
-export function applyBlurBehind(enabled: boolean): Promise<boolean> {
-  return run(async (win) => {
-    if (typeof win.setEffects !== 'function') throw new Error('effects unsupported')
-    await win.setEffects(enabled ? { effects: ['acrylic'], state: 'active' } : { effects: [] })
-  })
-}
-
 /** 桌面端把本地文件读成 data URL，浏览器端返回 null。 */
 export async function readFileAsDataUrl(path: string): Promise<string | null> {
   const result = await invoke<string>('read_file_data_url', { path })

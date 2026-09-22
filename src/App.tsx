@@ -20,7 +20,6 @@ import {
 } from './lib/attachments'
 import {
   applyAlwaysOnTop,
-  applyBlurBehind,
   closeWindow,
   isDesktop,
   minimizeWindow,
@@ -57,6 +56,10 @@ const NEW_CARD_OFFSET_Y = 22
 /** 提示条停留时间，以及淡出动画给多长。 */
 const TOAST_HOLD = 2400
 const TOAST_OUT = 200
+/** 「已完成」那种大字动效停留多久（和 app.css 里的 flash 动画对齐）。 */
+const FLASH_DURATION = 1100
+/** 「整理」时给卡片位移留的过渡时间窗口。 */
+const ARRANGE_MOTION = 460
 
 /** 四象限的可用区域 = .board 的内容盒（扣掉内边距）。 */
 function measureBoardViewport(element: HTMLElement) {
@@ -94,12 +97,16 @@ export function App() {
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [toastLeaving, setToastLeaving] = useState(false)
+  const [flash, setFlash] = useState<{ id: number; text: string } | null>(null)
+  const [arranging, setArranging] = useState(false)
   const [version, setVersion] = useState('—')
   const [update, setUpdate] = useState<UpdateState>(IDLE_UPDATE)
   const [now, setNow] = useState(() => Date.now())
   const [systemDark, setSystemDark] = useState(false)
   const toastTimer = useRef<number | null>(null)
   const toastLeaveTimer = useRef<number | null>(null)
+  const flashTimer = useRef<number | null>(null)
+  const arrangeTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
   const storageWarned = useRef(false)
   /** 状态文件：最近一次同步过的内容和修改时间，用来和 CLI 对表。 */
@@ -260,12 +267,11 @@ export function App() {
     const root = document.documentElement
     root.dataset.theme = resolvedTheme
     root.dataset.accent = settings.accent
-    root.style.setProperty('--panel-opacity', String(settings.panelOpacity))
     root.style.setProperty('--nm-grain', String(settings.grain))
     root.style.setProperty('--glass-blur', `${(6 + settings.frost * 0.38).toFixed(1)}px`)
     root.style.setProperty('--glass-blur-soft', `${(4 + settings.frost * 0.18).toFixed(1)}px`)
     document.body.classList.toggle('is-desktop', isDesktop)
-  }, [resolvedTheme, settings.accent, settings.panelOpacity, settings.grain, settings.frost])
+  }, [resolvedTheme, settings.accent, settings.grain, settings.frost])
 
   useEffect(() => {
     if (!isDesktop) return
@@ -273,15 +279,12 @@ export function App() {
   }, [settings.alwaysOnTop])
 
   useEffect(() => {
-    if (!isDesktop) return
-    void applyBlurBehind(settings.blurBehind)
-  }, [settings.blurBehind])
-
-  useEffect(() => {
     return () => {
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
       if (toastLeaveTimer.current !== null) window.clearTimeout(toastLeaveTimer.current)
       if (confirmTimer.current !== null) window.clearTimeout(confirmTimer.current)
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
+      if (arrangeTimer.current !== null) window.clearTimeout(arrangeTimer.current)
     }
   }, [])
 
@@ -440,9 +443,24 @@ export function App() {
   }, [])
 
   const arrange = useCallback(() => {
+    // 先把「正在整理」挂上，卡片换位置就会走过渡而不是瞬移。
+    setArranging(true)
+    if (arrangeTimer.current !== null) window.clearTimeout(arrangeTimer.current)
+    arrangeTimer.current = window.setTimeout(() => setArranging(false), ARRANGE_MOTION)
     dispatch({ type: 'arrange', zone: zoneRef.current })
     notify('已按象限重新排列')
   }, [notify])
+
+  /** 完成一张卡片：响一声 + 屏幕中央来一发「已完成」。 */
+  const celebrate = useCallback(
+    (text: string) => {
+      if (settings.soundOnComplete) playCompleteSound()
+      setFlash({ id: Date.now(), text })
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
+      flashTimer.current = window.setTimeout(() => setFlash(null), FLASH_DURATION)
+    },
+    [settings.soundOnComplete],
+  )
 
   /**
    * 图片预览走独立窗口：主面板把这一张图写进 localStorage，
@@ -652,11 +670,10 @@ export function App() {
             dispatch({ type: 'archive', id })
             notify('已归档，可在「归档」里找到')
           }}
-          onCompleteSound={() => {
-            if (settings.soundOnComplete) playCompleteSound()
-          }}
+          onComplete={() => celebrate('已完成')}
           onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
+          moving={arranging}
           zone={zone}
           boardRef={boardRef}
           onBlurBoard={() => {
@@ -709,6 +726,13 @@ export function App() {
         {toast ? (
           <div className={`toast${toastLeaving ? ' is-leaving' : ''}`} role="status">
             {toast}
+          </div>
+        ) : null}
+
+        {/* 完成卡片时屏幕中央的大字，纯装饰、不挡操作。 */}
+        {flash ? (
+          <div className="flash" key={flash.id} aria-hidden="true">
+            <span className="flash__text">{flash.text}</span>
           </div>
         ) : null}
       </div>

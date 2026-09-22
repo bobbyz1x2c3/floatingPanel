@@ -26,11 +26,7 @@
         "shadow": true,
         "alwaysOnTop": true,
         "dragDropEnabled": true,
-        "acceptFirstMouse": true,
-        "windowEffects": {
-          "effects": ["acrylic"],
-          "state": "active"
-        }
+        "acceptFirstMouse": true
       }
     ],
     "security": {
@@ -51,6 +47,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": ["bin/"],
     "category": "Productivity",
     "shortDescription": "新拟态风格的跨平台悬浮卡片面板",
     "longDescription": "NemuFloat 是一块新拟态（Neumorphism）风格的悬浮卡片面板：任意拖动、置顶、收起卡片，内容自动保存在本地。使用 Tauri 打包为 Windows / macOS / Linux 原生应用，同一套界面也可运行在浏览器与移动端。",

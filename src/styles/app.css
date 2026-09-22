@@ -13,8 +13,9 @@ body {
   background: var(--page-bg);
   background-attachment: fixed;
   color: var(--nm-text);
-  font-family: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei UI', system-ui, -apple-system, sans-serif;
+  /* 得意黑打头，后面的系统字体是兜底（缺字、加载慢的时候不至于排版崩）。 */
+  font-family: 'Smiley Sans', 'Inter', 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -98,8 +99,6 @@ body.is-desktop .shell::before {
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
   overflow: hidden;
-  opacity: var(--panel-opacity, 1);
-  transition: opacity var(--nm-t) var(--nm-ease);
 }
 
 .panel::before {
@@ -357,6 +356,30 @@ body.is-desktop .shell::before {
   }
 }
 
+/*
+  新建的卡片（双击空白处、拖进来的东西）：从中心「展开」出来，
+  比首屏那批卡片的依次落下更明显一点，双击完立刻知道落在哪了。
+*/
+.card.is-new {
+  animation: card-new 420ms var(--nm-ease-out) backwards;
+  animation-delay: 0ms;
+}
+
+@keyframes card-new {
+  0% {
+    opacity: 0;
+    scale: 0.78;
+  }
+  62% {
+    opacity: 1;
+    scale: 1.03;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
 /* 删除卡片：先缩一下再消失，别让卡片凭空蒸发。 */
 .card.is-removing {
   pointer-events: none;
@@ -373,6 +396,25 @@ body.is-desktop .shell::before {
     scale: 0.92;
     translate: 0 6px;
   }
+}
+
+/* 开着「对齐网格」拖卡片：位置变化补一小段过渡，看着像被格子吸过去。 */
+.card.is-snapping {
+  transition: left 60ms linear, top 60ms linear, box-shadow var(--nm-t) var(--nm-ease),
+    transform var(--nm-t) var(--nm-ease);
+}
+
+/* 收起 / 展开：只在切换的这一下给高度加过渡；平时高度是跟手拖的，不能有过渡。 */
+.card.is-toggling {
+  overflow: hidden;
+  transition: height 260ms var(--nm-ease-out), min-height 260ms var(--nm-ease-out),
+    box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
+}
+
+/* 整理：卡片滑到自己的新位置。 */
+.card.is-moving {
+  transition: left 380ms var(--nm-ease-out), top 380ms var(--nm-ease-out),
+    box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
 }
 
 .card.is-front {
@@ -1294,6 +1336,46 @@ html[data-gesture] .card__title {
 
 .toast.is-leaving {
   animation: toast-out 200ms var(--nm-ease-out) forwards;
+}
+
+/* ---------- 完成卡片时的大字 ---------- */
+
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.flash__text {
+  color: var(--nm-accent);
+  font-size: clamp(64px, 17vw, 200px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 14px 44px color-mix(in srgb, var(--nm-accent) 40%, transparent);
+  animation: flash-pop var(--flash-duration, 1100ms) var(--nm-ease-out) forwards;
+}
+
+/* 大纲像游戏里那样「弹一下再散掉」：半透明，不挡看卡片。 */
+@keyframes flash-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  20% {
+    opacity: 0.62;
+    transform: scale(1.06);
+  }
+  42% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
 }
 
 @keyframes toast-out {

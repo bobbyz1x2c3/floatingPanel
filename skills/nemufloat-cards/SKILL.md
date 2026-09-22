@@ -24,10 +24,14 @@ NemuFloat 是一个四象限的悬浮待办面板。卡片按「紧急 / 重要�
 命令名是 `nemu`。找不到就直接用完整路径，Windows 上通常在：
 
 ```
-H:\wkspa\floatingPanel\src-tauri\target\release\nemu.exe
+%LOCALAPPDATA%\NemuFloat\bin\nemu.exe                      装完应用就有
+H:\wkspa\floatingPanel\src-tauri\target\release\nemu.exe   从源码构建时
 ```
 
-没有这个文件就先构建一次（在仓库根目录）：
+macOS 是 `/Applications/NemuFloat.app/Contents/Resources/bin/nemu`，
+Linux 是 `/usr/lib/NemuFloat/bin/nemu`。
+
+两个都没有就先构建一次（在仓库根目录）：
 
 ```bash
 npm run cli:build

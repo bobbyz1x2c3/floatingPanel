@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { QUADRANTS, QUADRANT_META } from '../lib/types'
 import type { Attachment, CardData, ZoneSize } from '../lib/types'
@@ -23,10 +23,12 @@ export interface BoardProps {
   onFocus: (id: string) => void
   onRemove: (id: string) => void
   onArchive: (id: string) => void
-  onCompleteSound: () => void
+  onComplete: () => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   onBlurBoard: () => void
+  /** 正在「整理」：卡片换位置时走过渡。 */
+  moving?: boolean
 }
 
 function matchesQuery(card: CardData, query: string): boolean {
@@ -55,10 +57,11 @@ export function Board({
   onFocus,
   onRemove,
   onArchive,
-  onCompleteSound,
+  onComplete,
   onPreview,
   onNotify,
   onBlurBoard,
+  moving = false,
 }: BoardProps) {
   // 画布至少铺满窗口（正好两格宽、两格高），卡片堆到外面时再撑大。
   const bounds = useMemo(() => {
@@ -74,6 +77,30 @@ export function Board({
   }, [cards, zone])
 
   const filtered = query.trim().length > 0
+
+  /*
+    记一下「哪些卡片是刚出现的」：首屏那一批交给依次落下的入场动效，
+    之后新加的（双击、拖入、从归档恢复、CLI 加进来）走展开动效。
+  */
+  const knownIds = useRef<Set<string>>(new Set())
+  const seenFirstBatch = useRef(false)
+  const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    const known = knownIds.current
+    const alive = new Set(cards.map((card) => card.id))
+    for (const id of [...known]) if (!alive.has(id)) known.delete(id)
+    const added = cards.filter((card) => !known.has(card.id)).map((card) => card.id)
+    for (const id of added) known.add(id)
+    if (!seenFirstBatch.current) {
+      seenFirstBatch.current = true
+      return
+    }
+    if (added.length === 0) return
+    setFreshIds(new Set(added))
+    const timer = window.setTimeout(() => setFreshIds(new Set()), 600)
+    return () => window.clearTimeout(timer)
+  }, [cards])
   const matchCount = useMemo(
     () => cards.filter((card) => matchesQuery(card, query)).length,
     [cards, query],
@@ -158,9 +185,11 @@ export function Board({
             onBringToFront={() => onFocus(card.id)}
             onRemove={() => onRemove(card.id)}
             onArchive={() => onArchive(card.id)}
-            onCompleteSound={onCompleteSound}
+            onComplete={onComplete}
             onPreview={onPreview}
             onNotify={onNotify}
+            moving={moving}
+            isNew={freshIds.has(card.id)}
           />
         ))}
 

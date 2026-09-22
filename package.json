@@ -12,8 +12,9 @@
     "icon": "tauri icon src-tauri/icon-source.png",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build",
-    "cli:build": "cargo build --release --manifest-path src-tauri/Cargo.toml -p nemufloat-cli"
+    "desktop:build": "npm run cli:stage && tauri build",
+    "cli:build": "cargo build --release --manifest-path src-tauri/Cargo.toml -p nemufloat-cli",
+    "cli:stage": "npm run cli:build && node scripts/stage-cli.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

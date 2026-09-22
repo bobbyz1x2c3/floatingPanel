@@ -1,0 +1,2 @@
+打包前 npm run cli:stage 会把 nemu 二进制拷到这个目录，
+tauri.conf.json 的 bundle.resources 引用它，安装时会一起装到应用目录下。
