@@ -24,8 +24,10 @@ import {
   closeWindow,
   isDesktop,
   minimizeWindow,
+  openTarget,
   openPreviewWindow,
   platformLabel,
+  runCommand,
   toggleMaximizeWindow,
   watchNativeDrop,
 } from './lib/platform'
@@ -34,6 +36,7 @@ import { putPreviewPayload } from './lib/preview'
 import { startAudio, stopAudio } from './lib/audio'
 import { formatClock, readTomatoDrop } from './lib/pomodoro'
 import { TOMATO_MIME } from './lib/pomodoro'
+import type { TrayTool } from './lib/types'
 import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
 import type { UpdateState } from './lib/update'
 import {
@@ -629,6 +632,44 @@ export function App() {
     })
   }, [])
 
+  /** 跑托盘上的一个快捷方式。 */
+  const runTrayTool = useCallback(
+    async (tool: TrayTool) => {
+      if (tool.kind === 'open') {
+        const opened = await openTarget(tool.value)
+        notify(opened ? `已打开 ${tool.label}` : `打不开「${tool.value}」`)
+        return
+      }
+      if (tool.kind === 'command') {
+        const ok = await runCommand(tool.value)
+        notify(ok ? `已执行 ${tool.label}` : '命令没能执行，检查一下设置里的写法')
+        return
+      }
+      switch (tool.value) {
+        case 'arrange':
+          arrange()
+          break
+        case 'archive':
+          setArchiveOpen(true)
+          setSettingsOpen(false)
+          break
+        case 'settings':
+          setSettingsOpen(true)
+          setArchiveOpen(false)
+          break
+        case 'new-card':
+          addCard()
+          break
+        case 'collapse-all':
+          dispatch({ type: 'collapseAll', value: !allCollapsed })
+          break
+        default:
+          notify(`不认识的托盘动作：${tool.value}`)
+      }
+    },
+    [addCard, allCollapsed, arrange, notify],
+  )
+
   const toggleSettings = useCallback(() => {
     setSettingsOpen((open) => {
       if (!open) setArchiveOpen(false)
@@ -830,6 +871,12 @@ export function App() {
           longMinutes={settings.pomodoroLong}
           runningLabel={pomodoro?.label ?? null}
           runningClock={pomodoro ? formatClock(remaining) : null}
+          tools={settings.trayTools}
+          onRunTool={(tool) => void runTrayTool(tool)}
+          onEditTools={() => {
+            setSettingsOpen(true)
+            setArchiveOpen(false)
+          }}
           onCancel={() => {
             setPomodoro(null)
             setRemaining(0)

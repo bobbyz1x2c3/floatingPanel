@@ -64,9 +64,21 @@
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, #ff9a6d, var(--nm-tomato) 62%);
-  box-shadow: inset -2px -2px 4px rgba(140, 40, 10, 0.35), 0 2px 5px -2px color-mix(in srgb, var(--nm-tomato) 70%, transparent);
+}
+
+.tomato__img {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  /* 生图给的图标自带一层柔和阴影，这里补一点外投影让它「浮」在托盘上 */
+  filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--nm-tomato) 38%, transparent));
+  -webkit-user-drag: none;
+}
+
+.tomato__img.is-small {
+  width: 20px;
+  height: 20px;
 }
 
 .tomato__body--sm {
@@ -125,6 +137,56 @@
   font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* ---------- 托盘上的工具快捷方式 ---------- */
+
+.tray-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tray-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: var(--nm-r-sm);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-control));
+  color: var(--nm-text);
+  cursor: pointer;
+  box-shadow: var(--nm-out-sm);
+  transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
+}
+
+.tray-tool:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--nm-out);
+}
+
+.tray-tool:active {
+  transform: translateY(1px);
+  box-shadow: var(--nm-in-sm);
+}
+
+.tray-tool--ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--nm-muted);
+}
+
+.tray-tool--ghost:hover {
+  color: var(--nm-accent);
+  box-shadow: var(--nm-out-sm);
+}
+
+.tray-tool__icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* ---------- 面板背景上的倒计时 ---------- */

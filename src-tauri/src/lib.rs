@@ -60,6 +60,28 @@ fn open_target(target: String) -> Result<(), String> {
     opener::open(&target).map_err(|error| error.to_string())
 }
 
+/// 跑一条用户自己在托盘里配的命令（Windows 走 cmd /C，其它平台走 sh -c）。
+/// 只负责启动，不等它结束，输出也不接管——它就是个快捷方式。
+#[tauri::command]
+fn run_command(command: String) -> Result<(), String> {
+    if command.trim().is_empty() {
+        return Err("命令是空的".into());
+    }
+    #[cfg(target_os = "windows")]
+    let spawned = {
+        use std::os::windows::process::CommandExt;
+        // 用 raw_arg 原样交给 cmd：走普通 arg 的话 Rust 会加一层引号，
+        // 带引号或重定向的命令（echo x > "%TEMP%\y"）会被拆坏。
+        std::process::Command::new("cmd")
+            .arg("/C")
+            .raw_arg(&command)
+            .spawn()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let spawned = std::process::Command::new("sh").arg("-c").arg(&command).spawn();
+    spawned.map(|_| ()).map_err(|error| error.to_string())
+}
+
 /* ---------- 状态文件：CLI 和界面共用这一份 ---------- */
 
 #[tauri::command]
@@ -120,6 +142,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file_data_url,
             open_target,
+            run_command,
             path_info,
             board_path_string,
             read_board_file,

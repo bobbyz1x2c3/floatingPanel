@@ -16,6 +16,8 @@ import type {
   Quadrant,
   Settings,
   ThemeMode,
+  TrayTool,
+  TrayToolKind,
 } from './types'
 
 const STORAGE_KEY = 'nemu-float.board.v1'
@@ -37,6 +39,32 @@ export const DEFAULT_SETTINGS: Settings = {
   autoCheckUpdate: true,
   pomodoroShort: 15,
   pomodoroLong: 30,
+  trayTools: [],
+}
+
+const TRAY_KINDS = ['action', 'open', 'command']
+
+/** 托盘快捷方式是从存档里读的，脏数据一律丢掉，别让界面崩在一条坏记录上。 */
+function readTrayTools(raw: unknown): TrayTool[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item, index): TrayTool | null => {
+      if (!item || typeof item !== 'object') return null
+      const source = item as Record<string, unknown>
+      const kind = typeof source.kind === 'string' && TRAY_KINDS.includes(source.kind) ? source.kind : 'action'
+      const label = typeof source.label === 'string' ? source.label.trim() : ''
+      const value = typeof source.value === 'string' ? source.value.trim() : ''
+      if (!label || !value) return null
+      return {
+        id: typeof source.id === 'string' && source.id ? source.id : `tool-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        icon: typeof source.icon === 'string' && source.icon.trim() ? source.icon.trim().slice(0, 2) : '🧰',
+        label: label.slice(0, 24),
+        kind: kind as TrayToolKind,
+        value: value.slice(0, 500),
+      }
+    })
+    .filter((item): item is TrayTool => item !== null)
+    .slice(0, 12)
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -155,6 +183,7 @@ export function parseState(raw: unknown): BoardState | null {
       autoCheckUpdate: settingsRaw.autoCheckUpdate !== false,
       pomodoroShort: clampNumber(settingsRaw.pomodoroShort, 1, 180, DEFAULT_SETTINGS.pomodoroShort),
       pomodoroLong: clampNumber(settingsRaw.pomodoroLong, 1, 300, DEFAULT_SETTINGS.pomodoroLong),
+      trayTools: readTrayTools(settingsRaw.trayTools),
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

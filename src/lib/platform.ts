@@ -145,6 +145,12 @@ export async function probePath(path: string): Promise<PathProbe | null> {
   }
 }
 
+/** 跑一条用户自己配的命令（托盘快捷方式用）。 */
+export async function runCommand(command: string): Promise<boolean> {
+  const result = await invoke<void>('run_command', { command })
+  return result.ok
+}
+
 function openViaWindow(target: string): boolean {
   try {
     return window.open(target, '_blank', 'noopener,noreferrer') !== null

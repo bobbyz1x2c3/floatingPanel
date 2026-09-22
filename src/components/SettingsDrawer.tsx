@@ -1,8 +1,9 @@
-import { NeuButton, NeuChip, NeuSlider, NeuSwitch, DrawerRow } from './controls'
+import { useState } from 'react'
+import { NeuButton, NeuChip, NeuField, NeuSlider, NeuSwitch, DrawerRow } from './controls'
 import { IconClose, IconEraser, IconGrid, IconRestore } from './icons'
 import { formatPercent } from '../lib/format'
-import { TONES, TONE_LABELS } from '../lib/types'
-import type { CardTone, Settings, ThemeMode } from '../lib/types'
+import { TONES, TONE_LABELS, TRAY_ACTIONS, TRAY_KIND_LABELS } from '../lib/types'
+import type { CardTone, Settings, ThemeMode, TrayTool, TrayToolKind } from '../lib/types'
 import type { UpdateState } from '../lib/update'
 
 export interface SettingsDrawerProps {
@@ -59,6 +60,27 @@ export function SettingsDrawer({
   onInstallUpdate,
   onClose,
 }: SettingsDrawerProps) {
+  // 新增托盘工具的小表单
+  const [toolIcon, setToolIcon] = useState('🧰')
+  const [toolLabel, setToolLabel] = useState('')
+  const [toolKind, setToolKind] = useState<TrayToolKind>('action')
+  const [toolValue, setToolValue] = useState(TRAY_ACTIONS[0].value)
+
+  const addTool = () => {
+    const label = toolLabel.trim() || TRAY_ACTIONS.find((a) => a.value === toolValue)?.label || '新工具'
+    const value = toolValue.trim()
+    if (!value) return
+    const tool: TrayTool = {
+      id: `tool-${Date.now().toString(36)}`,
+      icon: toolIcon.trim().slice(0, 2) || '🧰',
+      label: label.slice(0, 24),
+      kind: toolKind,
+      value,
+    }
+    onPatch({ trayTools: [...settings.trayTools, tool] })
+    setToolLabel('')
+  }
+
   return (
     <aside className="drawer nm-scroll" aria-label="设置面板">
       <div className="drawer__head">
@@ -223,6 +245,105 @@ export function SettingsDrawer({
             />
           </span>
         </DrawerRow>
+      </div>
+
+      <hr className="nm-divider" />
+
+      <div className="drawer__group">
+        <span className="nm-label">托盘工具</span>
+        <p className="drawer__note">
+          挂在下方托盘上的快捷方式：内置动作、打开链接 / 文件，或者执行一条命令（命令直接交给系统跑，只填自己信得过的）。
+        </p>
+
+        {settings.trayTools.length > 0 ? (
+          <ul className="tray-list">
+            {settings.trayTools.map((tool) => (
+              <li key={tool.id} className="tray-list__item">
+                <span className="tray-list__icon" aria-hidden="true">
+                  {tool.icon}
+                </span>
+                <span className="tray-list__meta">
+                  <b>{tool.label}</b>
+                  <em>
+                    {TRAY_KIND_LABELS[tool.kind]} · {tool.value}
+                  </em>
+                </span>
+                <NeuButton
+                  iconOnly
+                  size="sm"
+                  variant="danger"
+                  aria-label={`移除 ${tool.label}`}
+                  title="移除"
+                  onClick={() =>
+                    onPatch({ trayTools: settings.trayTools.filter((item) => item.id !== tool.id) })
+                  }
+                >
+                  <IconClose size={14} />
+                </NeuButton>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="drawer__note">还没有工具，下面加一个试试。</p>
+        )}
+
+        <div className="tray-form">
+          <div className="tray-form__row">
+            <NeuField
+              className="tray-form__icon"
+              value={toolIcon}
+              maxLength={2}
+              aria-label="工具图标"
+              title="一个 emoji 或一两个字符"
+              onChange={(event) => setToolIcon(event.target.value)}
+            />
+            <NeuField
+              value={toolLabel}
+              placeholder="名称，例如 打开项目"
+              aria-label="工具名称"
+              onChange={(event) => setToolLabel(event.target.value)}
+            />
+          </div>
+          <div className="drawer__chips">
+            {(Object.keys(TRAY_KIND_LABELS) as TrayToolKind[]).map((kind) => (
+              <NeuChip
+                key={kind}
+                active={toolKind === kind}
+                onClick={() => {
+                  setToolKind(kind)
+                  setToolValue(kind === 'action' ? TRAY_ACTIONS[0].value : '')
+                }}
+              >
+                {TRAY_KIND_LABELS[kind]}
+              </NeuChip>
+            ))}
+          </div>
+          {toolKind === 'action' ? (
+            <div className="drawer__chips">
+              {TRAY_ACTIONS.map((action) => (
+                <NeuChip
+                  key={action.value}
+                  active={toolValue === action.value}
+                  onClick={() => setToolValue(action.value)}
+                >
+                  {action.label}
+                </NeuChip>
+              ))}
+            </div>
+          ) : (
+            <NeuField
+              value={toolValue}
+              placeholder={toolKind === 'open' ? 'https://… 或 D:\\某个文件' : '例如 code D:\\项目'}
+              aria-label="工具内容"
+              onChange={(event) => setToolValue(event.target.value)}
+            />
+          )}
+          <div className="drawer__actions">
+            <NeuButton size="sm" disabled={!toolValue.trim()} onClick={addTool}>
+              加到托盘
+            </NeuButton>
+          </div>
+        </div>
       </div>
 
       <hr className="nm-divider" />

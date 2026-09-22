@@ -6,6 +6,34 @@ export type ResolvedTheme = 'light' | 'dark'
 
 export type Quadrant = 'do' | 'schedule' | 'delegate' | 'drop'
 
+/** 下方托盘里可以挂的快捷方式。 */
+export type TrayToolKind = 'action' | 'open' | 'command'
+
+export interface TrayTool {
+  id: string
+  /** 一个 emoji 或者一两个字符。 */
+  icon: string
+  label: string
+  kind: TrayToolKind
+  /** action：动作名；open：网址或路径；command：命令行。 */
+  value: string
+}
+
+/** 内置动作（TrayTool.kind === 'action' 时可用的值）。 */
+export const TRAY_ACTIONS: { value: string; label: string }[] = [
+  { value: 'arrange', label: '整理布局' },
+  { value: 'archive', label: '打开归档' },
+  { value: 'settings', label: '打开设置' },
+  { value: 'new-card', label: '新建卡片' },
+  { value: 'collapse-all', label: '收起全部' },
+]
+
+export const TRAY_KIND_LABELS: Record<TrayToolKind, string> = {
+  action: '内置动作',
+  open: '打开链接 / 文件',
+  command: '执行命令',
+}
+
 export interface Attachment {
   id: string
   name: string
@@ -56,6 +84,8 @@ export interface Settings {
   pomodoroShort: number
   /** 大番茄多少分钟。 */
   pomodoroLong: number
+  /** 下方托盘上的快捷方式。 */
+  trayTools: TrayTool[]
 }
 
 export interface BoardState {
