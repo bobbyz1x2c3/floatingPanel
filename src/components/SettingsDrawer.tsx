@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NeuButton, NeuChip, NeuField, NeuSlider, NeuSwitch, DrawerRow } from './controls'
 import { IconClose, IconEraser, IconGrid, IconRestore } from './icons'
 import { formatPercent } from '../lib/format'
+import { openTarget } from '../lib/platform'
 import { TONES, TONE_LABELS, TRAY_ACTIONS, TRAY_KIND_LABELS } from '../lib/types'
 import type { CardTone, Settings, ThemeMode, TrayTool, TrayToolKind } from '../lib/types'
 import type { UpdateState } from '../lib/update'
@@ -38,6 +39,19 @@ function updateSummary(state: UpdateState, version: string): string {
     default:
       return `当前版本 ${version}`
   }
+}
+
+const RELEASES_URL = 'https://github.com/bobbyz1x2c3/floatingPanel/releases'
+
+/** Release 说明是 markdown，这里只留前几行够看的正文，剩下的让用户去发布页看。 */
+function notesPreview(notes: string): string {
+  const text = notes
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/^[-*]\s+/gm, '· ')
+    .trim()
+  if (text.length <= 400) return text
+  return `${text.slice(0, 400)}…`
 }
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -401,6 +415,23 @@ export function SettingsDrawer({
             )}
           </div>
         </DrawerRow>
+        {update.status === 'available' ? (
+          <div className="drawer__notes">
+            <div className="drawer__notes-head">
+              <span>更新说明 · {update.version}</span>
+              <button
+                type="button"
+                className="drawer__notes-link"
+                onClick={() => void openTarget(RELEASES_URL)}
+              >
+                打开发布页
+              </button>
+            </div>
+            <p className="drawer__notes-body">
+              {notesPreview(update.notes) || '这个版本没有写说明，点上面的「打开发布页」看看。'}
+            </p>
+          </div>
+        ) : null}
         <DrawerRow title="自动检查更新" hint="启动后自动问一次，有新版本会提示">
           <NeuSwitch
             label="自动检查更新"

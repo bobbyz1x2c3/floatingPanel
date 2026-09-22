@@ -258,27 +258,40 @@ nemu board                      # 各象限分布 + 状态文件路径
 
 ## 自动更新
 
-用的是 Tauri 官方的 updater 插件，链路已经接好：
+用的是 Tauri 官方的 updater 插件，**已经启用**：`src-tauri/tauri.conf.json` 里填好了公钥、打开了
+`bundle.createUpdaterArtifacts`，release 流程用仓库 secret `TAURI_SIGNING_PRIVATE_KEY` 给安装包签名。
 
 1. 启动 4 秒后（且「自动检查更新」开着）自动查一次，也可以随时在设置里点「检查更新」；
-2. 有新版本会在设置里显示「发现新版本 x.y.z」并弹出「下载并安装」；
-3. 点下去会带进度下载、安装，装完调用 `relaunch()` 重启。
+2. 有新版本，设置里会显示「发现新版本 x.y.z」并冒出「下载并安装」，设置按钮上同时亮一个小圆点；
+3. 点下去带进度下载、安装（Windows 走 passive 静默安装），装完调用 `relaunch()` 重启。
 
-还差最后一步才能真正用起来——公钥和 Release：
+更新清单地址写在 `plugins.updater.endpoints`，指向本仓库 Release 里的 `latest.json`：
 
-```bash
-# 1. 生成一对签名密钥（私钥自己收好，别提交）
-npx tauri signer generate -w ~/.nemufloat/nemufloat.key
-
-# 2. 把输出的公钥填进 src-tauri/tauri.conf.json 的 plugins.updater.pubkey
-# 3. 打开打包时的更新产物：tauri.conf.json 里 bundle.createUpdaterArtifacts = true
-# 4. 发 Release 时用私钥签名，并把生成的 latest.json 一起上传
-$env:TAURI_SIGNING_PRIVATE_KEY = "（私钥内容）"
-npm run desktop:build
+```json
+{
+  "version": "0.2.0",
+  "notes": "这一版干了什么",
+  "pub_date": "2026-09-23T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": { "signature": "……", "url": "……/NemuFloat_0.2.0_x64-setup.nsis.zip" }
+  }
+}
 ```
 
-更新清单地址写在 `plugins.updater.endpoints`（默认指向本仓库 Release 的 `latest.json`）。
-在公钥还是空的时候，检查会直接失败，界面上只会显示一句「检查失败：更新清单还没发布 / 还没配置更新公钥」，不会有别的副作用。
+Tauri 打包时每个平台各写一份只含自己的 `latest.json`，所以 release 流程里专门有一个 `manifest` 步骤：
+各平台先把清单传成 `latest-<平台>.json`，等 matrix 全跑完再合并成正式的那一份（`platforms` 取并集、
+`notes` 换成当次 Release 说明），这样四个平台才都能收到更新提示。签名校验不过、清单 404、网络不通
+都会在设置里落成一句人话（「还没配置更新公钥」/「更新清单还没发布」/「网络不通，稍后再试」），不会静默失败。
+
+自己发一个新版本：
+
+```bash
+# 只做一次：生成密钥对，私钥自己收好（本机放在 ~/.nemufloat/），公钥填进 tauri.conf.json
+npx tauri signer generate -w ~/.nemufloat/nemufloat.key
+# 把私钥内容写进仓库 secret TAURI_SIGNING_PRIVATE_KEY，然后：
+
+# 每次发版：两处版本号一起改 -> 提交 -> 打 tag -> 推 tag，剩下的交给 .github/workflows/release.yml
+```
 
 ## 动效
 
@@ -291,7 +304,7 @@ npm run desktop:build
 
 | workflow | 什么时候跑 | 做什么 |
 | --- | --- | --- |
-| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再按平台矩阵并行打包并传成同一个版本的附件：Windows（NSIS + MSI）、macOS（Apple Silicon / Intel 两个 dmg）、Linux（AppImage + deb）；配了签名密钥的话 `.sig` / `latest.json` 也一起上传 |
+| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再按平台矩阵并行打包，把安装包（Windows NSIS+MSI / macOS 双架构 dmg / Linux AppImage+deb）、自动更新用的压缩包（`.nsis.zip` / `.app.tar.gz`）、`.sig` 签名一起传成同一个版本的附件，最后把各平台清单合并成一份 `latest.json` |
 | `.github/workflows/pages.yml` | `docs/` 有改动、或手动触发、或 Release 完成后自动调一次 | 用 token 把 Release 列表取成 `docs/releases.json`，再把 `docs/` 发到 GitHub Pages |
 
 版本清单是**部署时用 token 生成**的，所以私有仓库也能正常显示，页面自己不需要任何凭证；

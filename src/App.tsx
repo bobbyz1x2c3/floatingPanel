@@ -734,6 +734,7 @@ export function App() {
           allCollapsed={allCollapsed}
           settingsOpen={settingsOpen}
           archiveOpen={archiveOpen}
+          hasUpdate={update.status === 'available'}
           onArrange={arrange}
           onToggleCollapseAll={() => dispatch({ type: 'collapseAll', value: !allCollapsed })}
           onCycleTheme={cycleTheme}

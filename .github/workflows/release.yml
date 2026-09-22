@@ -3,14 +3,16 @@ name: Release
 # 推一个 v* 标签（或在 Actions 里手动指定 tag）就会：
 #   1) 先把 Release 建出来——这一步很快，也不依赖编译环境，所以即使后面某个平台编译失败，
 #      版本页也不会缺席；
-#   2) 再按平台矩阵并行打包，谁先打完谁先往同一个 Release 传附件。
+#   2) 再按平台矩阵并行打包，谁先打完谁先往同一个 Release 传附件；
+#   3) 最后把各平台的安装包 + 签名汇总成一份 latest.json——自动更新靠它。
+#      （tauri 自己只会写 `<安装包>.sig`，清单得我们自己拼；macOS 的更新包是 .app.tar.gz）
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: 要发布的 tag（例如 v0.1.0）
+        description: 要发布的 tag（例如 v0.2.0）
         required: true
 
 permissions:
@@ -49,17 +51,21 @@ jobs:
       matrix:
         include:
           - name: Windows x64
+            slug: windows-x86_64
             os: windows-latest
             args: "--bundles nsis,msi"
           - name: macOS (Apple Silicon)
+            slug: darwin-aarch64
             os: macos-latest
             args: "--bundles dmg --target aarch64-apple-darwin"
             target: aarch64-apple-darwin
           - name: macOS (Intel)
+            slug: darwin-x86_64
             os: macos-latest
             args: "--bundles dmg --target x86_64-apple-darwin"
             target: x86_64-apple-darwin
           - name: Linux x64
+            slug: linux-x86_64
             os: ubuntu-22.04
             args: "--bundles appimage,deb"
     runs-on: ${{ matrix.os }}
@@ -94,10 +100,12 @@ jobs:
 
       - name: 打包
         env:
-          # 想产出自动更新用的签名包，就在仓库里配这两个 secret，
-          # 并把 tauri.conf.json 的 bundle.createUpdaterArtifacts 打开。
+          # 自动更新要求安装包签名。密钥用 `npx tauri signer generate` 生成，
+          # 私钥内容放进仓库 secret TAURI_SIGNING_PRIVATE_KEY。
+          # 密码那一项：密钥没设密码的话，这个 secret 留空也要「存在」（GitHub 不允许空值，
+          # 所以这里给了个默认空串），不然 tauri 会转去问交互式密码，CI 上就卡住了。
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: npm run desktop:build -- ${{ matrix.args }}
 
       - name: 上传这个平台的产物
@@ -106,9 +114,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${{ needs.release.outputs.tag }}"
-          # 把安装包（以及配了签名时的 .sig / latest.json）一起找出来传上去。
-          # 注意用 while read 而不是 mapfile：macOS runner 上的 bash 还是 3.2，没有 mapfile。
+          # macOS 两个架构的 updater 包同名（都叫 NemuFloat.app.tar.gz），先按架构改名，
+          # 不然先传完的会被后传的覆盖掉；改名后 .sig 也要跟着改。
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              *.app.tar.gz.sig) new="$(dirname "$f")/NemuFloat_${{ matrix.slug }}.app.tar.gz.sig" ;;
+              *.app.tar.gz) new="$(dirname "$f")/NemuFloat_${{ matrix.slug }}.app.tar.gz" ;;
+              *) continue ;;
+            esac
+            echo "改名 $f -> $new"
+            mv "$f" "$new"
+          done < <(find src-tauri/target -path "*/release/bundle/*" -type f \
+            \( -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) \
+            | grep -v -E "/(debug|\.tmp)/" | sort)
+
           count=0
+          # 安装包 + macOS 的更新包（.app.tar.gz）+ 每份安装包的 .sig 签名。
+          # 用 while read 而不是 mapfile：macOS runner 上的 bash 还是 3.2，没有 mapfile。
           while IFS= read -r file; do
             [ -z "$file" ] && continue
             echo "上传 $file"
@@ -116,7 +139,7 @@ jobs:
             count=$((count + 1))
           done < <(find src-tauri/target -path "*/release/bundle/*" -type f \
             \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" \
-               -o -name "*.deb" -o -name "*.rpm" -o -name "*.sig" -o -name "latest.json" \) \
+               -o -name "*.deb" -o -name "*.rpm" -o -name "*.sig" -o -name "*.tar.gz" \) \
             | grep -v -E "/(debug|\.tmp)/" | sort)
           if [ "$count" -eq 0 ]; then
             echo "没有找到产物，检查一下打包步骤" >&2
@@ -124,9 +147,38 @@ jobs:
           fi
           echo "本平台共上传 $count 个文件"
 
-  # ---------- 3. 发布页跟着更新 ----------
-  pages:
+  # ---------- 3. 合并各平台的更新清单 ----------
+  manifest:
     needs: [release, bundle]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 汇总 latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.release.outputs.tag }}"
+          repo="${{ github.repository }}"
+          mkdir -p assets
+          # 只取自动更新要用的东西：安装包 + 每份 .sig。
+          gh release download "$tag" --repo "$repo" --dir assets --clobber \
+            --pattern '*.exe' --pattern '*.msi' --pattern '*.AppImage' \
+            --pattern '*.deb' --pattern '*.app.tar.gz' --pattern '*.sig'
+          ls -l
+          node scripts/make-updater-manifest.mjs \
+            --dir assets --repo "$repo" --tag "$tag" \
+            --notes .github/release-notes.md --out latest.json
+          gh release upload "$tag" latest.json --clobber --repo "$repo"
+
+  # ---------- 4. 发布页跟着更新 ----------
+  pages:
+    needs: [release, manifest]
     if: always() && needs.release.result == 'success'
     runs-on: ubuntu-latest
     steps:

@@ -42,8 +42,9 @@ let pending: PendingUpdate | null = null
 function readable(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
   if (/empty public key|public key/i.test(text)) return '还没配置更新公钥'
+  if (/signature|verify|minisign/i.test(text)) return '安装包签名对不上，已拒绝，请到发布页手动下载'
   if (/release JSON|valid release/i.test(text)) return '更新清单还没发布'
-  if (/network|dns|connect|timed? ?out/i.test(text)) return '网络不通，稍后再试'
+  if (/network|dns|connect|timed? ?out|request/i.test(text)) return '网络不通，稍后再试'
   if (/404/.test(text)) return '更新清单还没发布'
   return text.slice(0, 120)
 }
