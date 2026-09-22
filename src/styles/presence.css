@@ -1,0 +1,107 @@
+/*
+  联机：面板背景上的「朋友位置」层 + 联机抽屉。
+  每个人一个色相，点按对方卡片的相对位置摆放，靠呼吸动画表示「人在」。
+  只有位置和大小，没有任何文字，所以做得非常淡，不挡自己看卡片。
+*/
+
+.presence {
+  position: absolute;
+  inset: var(--topbar-h, 52px) 0 0 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.presence__peer {
+  position: absolute;
+  inset: 0;
+}
+
+.presence__dot {
+  position: absolute;
+  /* 用 translate 把点挪到中心：left/top 给的是卡片中心 */
+  translate: -50% -50%;
+  /* 就是一颗小光点，不按卡片大小放大——只表达「那个位置有人」 */
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 35%,
+    hsl(var(--dot-hue, 210) 85% 72% / 0.55),
+    hsl(var(--dot-hue, 210) 80% 58% / 0.28) 62%,
+    transparent 72%
+  );
+  border: 1px solid hsl(var(--dot-hue, 210) 85% 70% / 0.34);
+  box-shadow: 0 0 14px 4px hsl(var(--dot-hue, 210) 85% 62% / 0.22);
+  animation: peer-breathe 3.4s ease-in-out infinite;
+}
+
+/* 每个人的呼吸相位错开一点，看着像好几个人在各自呼吸，而不是一起闪 */
+.presence__peer:nth-child(2n) .presence__dot {
+  animation-duration: 4.1s;
+  animation-delay: -1.1s;
+}
+
+.presence__peer:nth-child(3n) .presence__dot {
+  animation-duration: 3.8s;
+  animation-delay: -2.3s;
+}
+
+@keyframes peer-breathe {
+  0%,
+  100% {
+    opacity: 0.32;
+    scale: 0.94;
+  }
+  50% {
+    opacity: 0.72;
+    scale: 1.06;
+  }
+}
+
+/* ---------- 联机抽屉 ---------- */
+
+.drawer--room {
+  width: min(400px, calc(100% - 32px));
+}
+
+.room__code {
+  margin: 2px 0 6px;
+  color: var(--nm-accent);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  user-select: text;
+}
+
+.room__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room__error {
+  color: #e0708a;
+  word-break: break-all;
+}
+
+.room__row .nm-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.drawer__note code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--nm-accent-soft);
+  color: var(--nm-text-strong);
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presence__dot {
+    animation: none;
+    opacity: 0.5;
+  }
+}

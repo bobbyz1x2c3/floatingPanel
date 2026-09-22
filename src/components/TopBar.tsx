@@ -17,6 +17,7 @@ import {
   IconSearch,
   IconSliders,
   IconSun,
+  IconUsers,
 } from './icons'
 import type { ThemeMode } from '../lib/types'
 
@@ -38,6 +39,11 @@ export interface TopBarProps {
   onCycleTheme: () => void
   onToggleArchive: () => void
   onToggleSettings: () => void
+  /** 联机：当前房间号（空 = 未联机）、同房间人数、面板是否开着。 */
+  room: string
+  peerCount: number
+  roomOpen: boolean
+  onToggleRoom: () => void
   onToggleAlwaysOnTop: () => void
   onMinimize: () => void
   onMaximize: () => void
@@ -69,6 +75,10 @@ export function TopBar({
   onCycleTheme,
   onToggleArchive,
   onToggleSettings,
+  room,
+  peerCount,
+  roomOpen,
+  onToggleRoom,
   onToggleAlwaysOnTop,
   onMinimize,
   onMaximize,
@@ -197,16 +207,27 @@ export function TopBar({
           </span>
         </NeuButton>
 
-        <NeuButton
-          iconOnly
-          size="sm"
-          active={settingsOpen}
-          aria-label="外观与窗口设置"
-          title="外观与窗口设置"
-          onClick={onToggleSettings}
-        >
-          <IconSliders size={16} />
-        </NeuButton>
+      <NeuButton
+        iconOnly
+        size="sm"
+        active={settingsOpen}
+        aria-label="外观与窗口设置"
+        title="外观与窗口设置"
+        onClick={onToggleSettings}
+      >
+        <IconSliders size={16} />
+      </NeuButton>
+
+      <NeuButton
+        iconOnly
+        size="sm"
+        active={roomOpen || room.length > 0}
+        aria-label={room ? `联机房间 ${room}，同房间 ${peerCount} 人` : '联机'}
+        title={room ? `房间 ${room} · 同房间 ${peerCount} 人` : '联机：创建或加入一个房间'}
+        onClick={onToggleRoom}
+      >
+        <IconUsers size={16} />
+      </NeuButton>
 
         <span className="topbar__divider" aria-hidden="true" />
 

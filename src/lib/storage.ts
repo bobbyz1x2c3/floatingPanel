@@ -40,6 +40,8 @@ export const DEFAULT_SETTINGS: Settings = {
   pomodoroShort: 15,
   pomodoroLong: 30,
   trayTools: [],
+  onlineBroker: 'wss://broker.emqx.io:8084/mqtt',
+  lastRoom: '',
 }
 
 const TRAY_KINDS = ['action', 'open', 'command']
@@ -184,6 +186,12 @@ export function parseState(raw: unknown): BoardState | null {
       pomodoroShort: clampNumber(settingsRaw.pomodoroShort, 1, 180, DEFAULT_SETTINGS.pomodoroShort),
       pomodoroLong: clampNumber(settingsRaw.pomodoroLong, 1, 300, DEFAULT_SETTINGS.pomodoroLong),
       trayTools: readTrayTools(settingsRaw.trayTools),
+      onlineBroker:
+        typeof settingsRaw.onlineBroker === 'string' && settingsRaw.onlineBroker.trim()
+          ? settingsRaw.onlineBroker.trim().slice(0, 200)
+          : DEFAULT_SETTINGS.onlineBroker,
+      lastRoom:
+        typeof settingsRaw.lastRoom === 'string' ? settingsRaw.lastRoom.trim().slice(0, 24) : '',
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

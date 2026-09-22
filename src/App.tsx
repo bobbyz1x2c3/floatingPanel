@@ -13,6 +13,8 @@ import { SettingsDrawer } from './components/SettingsDrawer'
 import { Spectrum } from './components/Spectrum'
 import { TomatoBar } from './components/TomatoBar'
 import { TopBar } from './components/TopBar'
+import { RoomDrawer } from './components/RoomDrawer'
+import { Presence } from './components/Presence'
 import {
   MAX_ATTACHMENTS,
   fileToAttachment,
@@ -37,6 +39,8 @@ import { startAudio, stopAudio } from './lib/audio'
 import { formatClock, readTomatoDrop } from './lib/pomodoro'
 import { TOMATO_MIME } from './lib/pomodoro'
 import type { TrayTool } from './lib/types'
+import { dotsFromCards, joinRoom } from './lib/online'
+import type { Peer, PresenceSession } from './lib/online'
 import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
 import type { UpdateState } from './lib/update'
 import {
@@ -56,6 +60,7 @@ import './styles/tokens.css'
 import './styles/neumorphism.css'
 import './styles/app.css'
 import './styles/pomodoro.css'
+import './styles/presence.css'
 
 const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
@@ -109,6 +114,13 @@ export function App() {
   const [toastLeaving, setToastLeaving] = useState(false)
   const [flash, setFlash] = useState<{ id: number; text: string } | null>(null)
   const [arranging, setArranging] = useState(false)
+  /** 联机：当前房间、连接状态、同房间其他人的光点。 */
+  const [room, setRoom] = useState('')
+  const [roomOpen, setRoomOpen] = useState(false)
+  const [roomStatus, setRoomStatus] = useState<'idle' | 'connecting' | 'online' | 'offline' | 'error'>('idle')
+  const [roomDetail, setRoomDetail] = useState('')
+  const [peers, setPeers] = useState<Peer[]>([])
+  const sessionRef = useRef<PresenceSession | null>(null)
   /** 正在跑的番茄钟（同一时间只允许一个）。 */
   const [pomodoro, setPomodoro] = useState<{ cardId: string; endsAt: number; label: string } | null>(null)
   const [remaining, setRemaining] = useState(0)
@@ -179,6 +191,25 @@ export function App() {
       setToast(null)
       setToastLeaving(false)
     }, TOAST_HOLD)
+  }, [])
+
+  /*
+    联机的光点层要盖在画布区域上（不含顶栏），所以量一次顶栏高度写成 CSS 变量。
+    顶栏是固定高度，但窄屏或字体变化时会有出入，用 ResizeObserver 跟着走。
+  */
+  useEffect(() => {
+    const bar = document.querySelector('.topbar')
+    if (!bar) return
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        '--topbar-h',
+        `${Math.round(bar.getBoundingClientRect().height)}px`,
+      )
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(bar)
+    return () => observer.disconnect()
   }, [])
 
   const resolvedTheme: 'light' | 'dark' =
@@ -677,6 +708,61 @@ export function App() {
     })
   }, [])
 
+  /** 加入（或创建）一个房间。 */
+  const enterRoom = useCallback(
+    async (code: string) => {
+      const room = code.trim().toLowerCase()
+      if (!room) return
+      sessionRef.current?.close()
+      sessionRef.current = null
+      setPeers([])
+      setRoom(room)
+      patchSettings({ lastRoom: room })
+      try {
+        const session = await joinRoom(room, settingsRef.current.onlineBroker, {
+          onPeers: setPeers,
+          onStatus: (status, detail) => {
+            setRoomStatus(status)
+            setRoomDetail(detail ?? '')
+          },
+        })
+        sessionRef.current = session
+        session.publish(dotsFromCards(stateRef.current.cards, zoneRef.current))
+        notify(`已加入房间 ${room}`)
+      } catch (error) {
+        setRoom('')
+        setRoomStatus('error')
+        setRoomDetail(String(error instanceof Error ? error.message : error).slice(0, 120))
+        notify('联机失败，检查一下服务器地址或网络')
+      }
+    },
+    [notify, patchSettings],
+  )
+
+  const leaveRoom = useCallback(() => {
+    sessionRef.current?.close()
+    sessionRef.current = null
+    setRoom('')
+    setRoomStatus('idle')
+    setRoomDetail('')
+    setPeers([])
+    notify('已离开房间')
+  }, [notify])
+
+  // 卡片位置变了就广播一次（内部会节流到每秒一次）。
+  useEffect(() => {
+    if (!room) return
+    sessionRef.current?.publish(dotsFromCards(cards, zone))
+  }, [cards, zone, room])
+
+  // 关掉窗口 / 离开面板时断干净，别在房间里留一个动都不动的点。
+  useEffect(() => {
+    return () => {
+      sessionRef.current?.close()
+      sessionRef.current = null
+    }
+  }, [])
+
   const requestUpdateCheck = useCallback(
     async (manual: boolean) => {
       if (!isDesktop) return
@@ -748,6 +834,9 @@ export function App() {
         {/* 频谱垫在所有卡片下面，是面板背景的一部分，不是浮层。 */}
         {settings.audioReactive ? <Spectrum label="系统音频" /> : null}
 
+        {/* 同房间的朋友：背景上的呼吸光点，只有相对位置 */}
+        <Presence peers={peers} />
+
         {/* 番茄钟进行中：面板背景上一个很大的剩余时间。 */}
         {pomodoro ? (
           <div className="countdown" aria-hidden="true">
@@ -774,6 +863,18 @@ export function App() {
           onCycleTheme={cycleTheme}
           onToggleArchive={toggleArchive}
           onToggleSettings={toggleSettings}
+          room={room}
+          peerCount={peers.length}
+          roomOpen={roomOpen}
+          onToggleRoom={() =>
+            setRoomOpen((open) => {
+              if (!open) {
+                setSettingsOpen(false)
+                setArchiveOpen(false)
+              }
+              return !open
+            })
+          }
           onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
           onMinimize={() => void minimizeWindow()}
           onMaximize={() => void toggleMaximizeWindow()}
@@ -850,6 +951,21 @@ export function App() {
             onCheckUpdate={() => void requestUpdateCheck(true)}
             onInstallUpdate={() => void requestInstallUpdate()}
             onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+
+        {roomOpen ? (
+          <RoomDrawer
+            room={room}
+            status={roomStatus}
+            detail={roomDetail}
+            peerCount={peers.length}
+            broker={settings.onlineBroker}
+            lastRoom={settings.lastRoom}
+            onJoin={(code) => void enterRoom(code)}
+            onLeave={leaveRoom}
+            onBrokerChange={(value) => patchSettings({ onlineBroker: value })}
+            onClose={() => setRoomOpen(false)}
           />
         ) : null}
 

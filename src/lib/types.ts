@@ -86,6 +86,10 @@ export interface Settings {
   pomodoroLong: number
   /** 下方托盘上的快捷方式。 */
   trayTools: TrayTool[]
+  /** 联机用的 MQTT broker（WebSocket 地址）。 */
+  onlineBroker: string
+  /** 上次加入的房间号，下次打开预填。 */
+  lastRoom: string
 }
 
 export interface BoardState {
