@@ -85,15 +85,15 @@ const EXAMPLE_SEEDS: CardSeed[] = [
     height: 262,
   },
   {
-    title: '重要 · 不紧急',
-    body: '左上角放需要长期推进的事。把卡片拖到这里，颜色会自动变成天蓝。',
+    title: '番茄钟',
+    body: '拖动番茄到卡片',
     quadrant: 'schedule',
     width: 330,
     height: 218,
   },
   {
-    title: '拖进来一张图片试试',
-    body: '图片可以直接粘贴，也可以从文件夹拖进卡片。文件和文件夹会变成一个链接，按住 Ctrl 点击就能打开；拖到画布空白处、甚至拖到菜单栏上，都会顺手新建一张卡片。网址也能被识别：https://tauri.app',
+    title: '粘贴一张图片试试',
+    body: '按 Ctrl/Cmd + V 粘贴一张图片试试',
     quadrant: 'delegate',
     width: 380,
     height: 288,
@@ -104,13 +104,6 @@ const EXAMPLE_SEEDS: CardSeed[] = [
     quadrant: 'drop',
     width: 344,
     height: 226,
-  },
-  {
-    title: '番茄钟怎么用',
-    body: '按住下方托盘里的番茄，拖到某张卡片上松手，那张卡片就开始倒计时：\n\n· 面板背景上会出现很大的剩余时间，卡片也会亮起呼吸圈；\n· 到点会响一声钟、屏幕上弹「时间到」，并在卡片底边留下一颗小方块，打完几次就攒几颗；\n· 中途想停，点托盘上的取消；\n· 大小番茄各多少分钟、托盘显示什么、贴哪边，都在设置里改。\n\n番茄钟只负责计时，不会改变卡片的完成状态。',
-    quadrant: 'drop',
-    width: 372,
-    height: 316,
   },
 ]
 

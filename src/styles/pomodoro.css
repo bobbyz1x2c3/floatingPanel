@@ -154,15 +154,6 @@
   background: var(--nm-hair);
 }
 
-.tray__clock {
-  min-width: 62px;
-  color: var(--nm-tomato);
-  font-size: 16px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
 .tray__empty {
   padding: 0 6px;
   color: var(--nm-muted);
@@ -245,9 +236,33 @@
   font-weight: 700;
 }
 
-/* ---------- 面板背景上的倒计时（.countdown 在 app.css 里，这里只管配色） ---------- */
+/* ---------- 面板背景上的倒计时 ---------- */
+.countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  color: var(--nm-tomato);
+  font-size: 240px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.16;
+  pointer-events: none;
+  animation: countdown-in 500ms var(--nm-ease-out) both;
+}
+
+@media (max-width: 960px) {
+  .countdown {
+    font-size: 160px;
+  }
+}
 
 @media (max-width: 660px) {
+  .countdown {
+    font-size: 96px;
+  }
   .tray__empty {
     display: none;
   }
@@ -266,5 +281,15 @@
   .tray-btn.is-lg img {
     width: 30px;
     height: 30px;
+  }
+}
+
+@keyframes countdown-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.16;
   }
 }

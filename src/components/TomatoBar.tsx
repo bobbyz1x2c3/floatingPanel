@@ -14,9 +14,8 @@ export interface TomatoDragPayload {
 export interface TomatoBarProps {
   shortMinutes: number
   longMinutes: number
-  /** 正在跑的番茄钟：显示剩余时间和取消。 */
-  runningLabel: string | null
-  runningClock: string | null
+  /** 是否有番茄钟正在运行：只决定是否显示取消按钮。 */
+  isRunning: boolean
   tools: TrayTool[]
   showPomodoro: boolean
   showTools: boolean
@@ -155,13 +154,12 @@ function TomatoButton({
 /**
  * 界面下方那块浮动面板：圆形按钮排成一排——
  * 番茄（按住拖到卡片上开始计时）、自定义工具、末尾一个「＋」跳去设置，
- * 计时中时右侧多一个剩余时间和取消。
+ * 计时中时末尾多一个取消按钮。
  */
 export function TomatoBar({
   shortMinutes,
   longMinutes,
-  runningLabel,
-  runningClock,
+  isRunning,
   tools,
   showPomodoro,
   showTools,
@@ -174,7 +172,7 @@ export function TomatoBar({
   onDropNothing,
 }: TomatoBarProps) {
   const hasTools = showTools && tools.length > 0
-  const empty = !showPomodoro && !hasTools && !runningClock
+  const empty = !showPomodoro && !hasTools && !isRunning
 
   return (
     <div className={`tray tray--${align}`} role="group" aria-label="番茄钟与工具">
@@ -200,7 +198,7 @@ export function TomatoBar({
           />
         ) : null}
 
-        {showPomodoro && (hasTools || runningClock) ? (
+        {showPomodoro && hasTools ? (
           <span className="tray__rule" aria-hidden="true" />
         ) : null}
 
@@ -222,12 +220,9 @@ export function TomatoBar({
           </TrayButton>
         ) : null}
 
-        {runningClock ? (
+        {isRunning ? (
           <>
             <span className="tray__rule" aria-hidden="true" />
-            <span className="tray__clock" title={`${runningLabel} 进行中`}>
-              {runningClock}
-            </span>
             <TrayButton label="取消番茄钟" tone="ghost" onClick={onCancel}>
               <IconClose size={16} />
             </TrayButton>

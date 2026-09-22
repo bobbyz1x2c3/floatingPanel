@@ -835,8 +835,7 @@ export function App() {
         <TomatoBar
           shortMinutes={settings.pomodoroShort}
           longMinutes={settings.pomodoroLong}
-          runningLabel={pomodoro?.label ?? null}
-          runningClock={pomodoro ? formatClock(remaining) : null}
+          isRunning={Boolean(pomodoro)}
           tools={settings.trayTools}
           showPomodoro={settings.trayShowPomodoro}
           showTools={settings.trayShowTools}
