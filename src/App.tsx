@@ -94,13 +94,10 @@ export function App() {
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [toastLeaving, setToastLeaving] = useState(false)
-  /** 开着的图片预览窗数量：预览窗抢焦点时不应该把主面板当成“失焦”淡化掉。 */
-  const [previewOpen, setPreviewOpen] = useState(0)
   const [version, setVersion] = useState('—')
   const [update, setUpdate] = useState<UpdateState>(IDLE_UPDATE)
   const [now, setNow] = useState(() => Date.now())
   const [systemDark, setSystemDark] = useState(false)
-  const [windowFocused, setWindowFocused] = useState(true)
   const toastTimer = useRef<number | null>(null)
   const toastLeaveTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
@@ -257,17 +254,6 @@ export function App() {
     const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)
-  }, [])
-
-  useEffect(() => {
-    const onBlur = () => setWindowFocused(false)
-    const onFocus = () => setWindowFocused(true)
-    window.addEventListener('blur', onBlur)
-    window.addEventListener('focus', onFocus)
-    return () => {
-      window.removeEventListener('blur', onBlur)
-      window.removeEventListener('focus', onFocus)
-    }
   }, [])
 
   useEffect(() => {
@@ -476,14 +462,8 @@ export function App() {
         notify('图片太大，本地存不下，没法单独打开')
         return
       }
-      setPreviewOpen((count) => count + 1)
-      const opened = await openPreviewWindow(payloadId, attachment.name || '图片预览', () =>
-        setPreviewOpen((count) => Math.max(0, count - 1)),
-      )
-      if (!opened) {
-        setPreviewOpen((count) => Math.max(0, count - 1))
-        notify('预览窗口没能打开，请稍后再试')
-      }
+      const opened = await openPreviewWindow(payloadId, attachment.name || '图片预览')
+      if (!opened) notify('预览窗口没能打开，请稍后再试')
     },
     [notify],
   )
@@ -622,13 +602,8 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [addCard, toggleSettings])
 
-  const isDimmed =
-    settings.dimOnBlur && !windowFocused && previewOpen === 0 && !settingsOpen && !archiveOpen
-
   return (
-    <div
-      className={`shell${isDimmed ? ' is-dimmed' : ''}${settings.audioReactive ? ' is-audio' : ''}`}
-    >
+    <div className={`shell${settings.audioReactive ? ' is-audio' : ''}`}>
       <div className="panel">
         {/* 频谱垫在所有卡片下面，是面板背景的一部分，不是浮层。 */}
         {settings.audioReactive ? <Spectrum label="系统音频" /> : null}

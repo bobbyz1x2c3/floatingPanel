@@ -102,10 +102,6 @@ body.is-desktop .shell::before {
   transition: opacity var(--nm-t) var(--nm-ease);
 }
 
-.shell.is-dimmed .panel {
-  opacity: calc(var(--panel-opacity, 1) * 0.68);
-}
-
 .panel::before {
   content: '';
   position: absolute;

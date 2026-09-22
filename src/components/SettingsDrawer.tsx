@@ -201,13 +201,6 @@ export function SettingsDrawer({
             onChange={(value) => onPatch({ blurBehind: value })}
           />
         </DrawerRow>
-        <DrawerRow title="失焦自动淡化" hint="切换到其它窗口时降低面板不透明度">
-          <NeuSwitch
-            label="失焦自动淡化"
-            checked={settings.dimOnBlur}
-            onChange={(value) => onPatch({ dimOnBlur: value })}
-          />
-        </DrawerRow>
       </div>
 
       <hr className="nm-divider" />

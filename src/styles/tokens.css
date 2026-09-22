@@ -40,13 +40,14 @@ html[data-theme='light'] {
   --nm-window-shade: rgba(38, 47, 68, 0.28);
   --page-bg: linear-gradient(155deg, #eaeef6 0%, #dde3ee 46%, #e6eaf3 100%);
   --glass-rgb: 255 255 255;
-  --glass-fill: 0.68;
-  --glass-fill-card: 0.6;
+  /* 面板本身就是一块玻璃：填充压到 0.5 左右，才看得出背后的东西。 */
+  --glass-fill: 0.5;
+  --glass-fill-card: 0.54;
   --glass-fill-control: 0.68;
   --glass-fill-field: 0.44;
   --glass-fill-float: 0.92;
-  --glass-fill-desktop: 0.58;
-  --glass-fill-card-desktop: 0.76;
+  --glass-fill-desktop: 0.4;
+  --glass-fill-card-desktop: 0.66;
   --glass-fill-control-desktop: 0.82;
   --glass-fill-field-desktop: 0.58;
   --glass-edge: rgba(255, 255, 255, 0.68);
@@ -73,13 +74,13 @@ html[data-theme='dark'] {
   --nm-window-shade: rgba(0, 0, 0, 0.6);
   --page-bg: linear-gradient(155deg, #1b1e25 0%, #242935 48%, #1b1e25 100%);
   --glass-rgb: 46 52 63;
-  --glass-fill: 0.66;
-  --glass-fill-card: 0.58;
+  --glass-fill: 0.5;
+  --glass-fill-card: 0.52;
   --glass-fill-control: 0.66;
   --glass-fill-field: 0.46;
   --glass-fill-float: 0.9;
-  --glass-fill-desktop: 0.56;
-  --glass-fill-card-desktop: 0.74;
+  --glass-fill-desktop: 0.42;
+  --glass-fill-card-desktop: 0.64;
   --glass-fill-control-desktop: 0.8;
   --glass-fill-field-desktop: 0.6;
   --glass-edge: rgba(255, 255, 255, 0.11);

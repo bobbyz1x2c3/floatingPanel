@@ -220,26 +220,13 @@ export function toFileHref(path: string): string {
 /**
  * 打开图片预览窗口。
  * 桌面端开一个真正的 Tauri 窗口（和主面板互不干扰），浏览器端开一个弹出窗口。
- * onClosed 在主面板需要知道“预览还开着没有”时用到（比如决定要不要淡化面板）。
  */
-export async function openPreviewWindow(
-  payloadId: string,
-  title: string,
-  onClosed?: () => void,
-): Promise<boolean> {
+export async function openPreviewWindow(payloadId: string, title: string): Promise<boolean> {
   const url = `index.html?preview=${encodeURIComponent(payloadId)}`
   if (!isDesktop) {
     try {
       const popup = window.open(url, `nemu-preview-${payloadId}`, 'popup=yes,width=1000,height=760')
-      if (!popup) return false
-      if (onClosed) {
-        const timer = window.setInterval(() => {
-          if (!popup.closed) return
-          window.clearInterval(timer)
-          onClosed()
-        }, 600)
-      }
-      return true
+      return popup !== null
     } catch {
       return false
     }
@@ -269,7 +256,6 @@ export async function openPreviewWindow(
         resolve(ok)
       }
       void win.once('tauri://created', () => {
-        if (onClosed) void win.once('tauri://destroyed', () => onClosed())
         settle(true)
       })
       void win.once('tauri://error', () => settle(false))
