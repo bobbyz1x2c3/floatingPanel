@@ -1,6 +1,6 @@
 /*
-  番茄钟：下方浮动面板 + 面板背景上的倒计时 + 卡片上的标记。
-  配色用一个固定的番茄红，和强调色分开，一眼能认出是「番茄」而不是别的状态。
+  下方那块浮动面板（托盘）：一大片磨砂玻璃，里面排一排圆形的新拟态按钮。
+  番茄钟相关的东西都在这里：托盘、拖影、卡片上的计时高亮与番茄标记。
 */
 
 :root {
@@ -8,54 +8,167 @@
   --nm-tomato-soft: rgba(242, 102, 46, 0.16);
 }
 
-/* ---------- 下方浮动面板 ---------- */
+/* ---------- 托盘：定位壳 + 玻璃底 ---------- */
 
-.tomatoes {
+.tray {
   position: absolute;
-  left: 50%;
   bottom: 18px;
   z-index: 58;
   display: flex;
+  pointer-events: none;
+}
+
+.tray--center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tray--left {
+  left: 18px;
+}
+
+.tray--right {
+  right: 18px;
+}
+
+/* 开着频谱的时候把托盘抬起来，两者不打架 */
+.shell.is-audio .tray {
+  bottom: 84px;
+}
+
+/*
+  玻璃本体：填充用和主面板同一个 --glass-fill（不是给抽屉/提示条那种 0.9 的厚玻璃），
+  这样背景是真的透得出来，靠 backdrop-filter 把它磨砂化。
+*/
+.tray__inner {
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 14px;
-  transform: translateX(-50%);
+  padding: 11px 16px;
   border-radius: var(--nm-r-pill);
-  background: rgb(var(--glass-rgb) / var(--glass-fill-float));
+  /* 比主面板再透一点（乘 0.82），浮在卡片上才像一块独立的玻璃 */
+  background: rgb(var(--glass-rgb) / calc(var(--glass-fill) * 0.82));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgb(var(--glass-rgb) / 0.14);
+  pointer-events: auto;
   animation: toast-in 260ms var(--nm-ease-out) both;
 }
 
-/* 开着频谱 / 提示条的时候把番茄面板抬起来，互不遮挡。 */
-.shell.is-audio .tomatoes {
-  bottom: 78px;
+/* 玻璃里再来一层很淡的内描边，边界更清楚一点 */
+.tray__inner::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgb(var(--glass-rgb) / 0.22);
+  pointer-events: none;
 }
 
-.tomato {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 5px 13px 5px 7px;
-  border-radius: var(--nm-r-pill);
-  background: var(--control, rgb(var(--glass-rgb) / var(--glass-fill-control)));
-  border: 1px solid var(--edge-soft, var(--glass-edge-soft));
-  box-shadow: var(--nm-out-sm);
-  cursor: grab;
-  user-select: none;
-  transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
+.tray__inner {
+  position: relative;
 }
 
-.tomato:hover {
+/* ---------- 圆形按钮 ---------- */
+
+.tray-btn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: 50%;
+  background: rgb(var(--glass-rgb) / var(--glass-fill-control));
+  color: var(--nm-text);
+  cursor: pointer;
+  touch-action: none;
+  /* 在玻璃上要压得住：比默认的新拟态双阴影再明显一点 */
+  box-shadow: 3px 3px 7px color-mix(in srgb, var(--nm-shade) 88%, transparent),
+    -3px -3px 7px var(--nm-glow);
+  transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease),
+    color var(--nm-t) var(--nm-ease);
+}
+
+.tray-btn:hover {
+  color: var(--nm-text-strong);
+  transform: translateY(-2px);
   box-shadow: var(--nm-out);
-  transform: translateY(-1px);
 }
 
-.tomato.is-dragging {
+.tray-btn:active {
+  transform: translateY(1px);
+  box-shadow: var(--nm-in-sm);
+}
+
+.tray-btn.is-lg {
+  width: 52px;
+  height: 52px;
+}
+
+.tray-btn img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--nm-tomato) 34%, transparent));
+}
+
+.tray-btn.is-lg img {
+  width: 40px;
+  height: 40px;
+}
+
+.tray-btn--tomato {
+  cursor: grab;
+}
+
+.tray-btn--tomato:active {
   cursor: grabbing;
-  opacity: 0.55;
+}
+
+.tray-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--nm-muted);
+}
+
+.tray-btn--ghost:hover {
+  color: var(--nm-accent);
+  box-shadow: var(--nm-out-sm);
+}
+
+.tray-btn__emoji {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.tray__rule {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 30px;
+  margin: 0 2px;
+  background: var(--nm-hair);
+}
+
+.tray__clock {
+  min-width: 62px;
+  color: var(--nm-tomato);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.tray__empty {
+  padding: 0 6px;
+  color: var(--nm-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* 跟手的拖影：跟着光标走，不参与命中测试 */
@@ -65,183 +178,29 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px 4px 6px;
+  padding: 5px 12px 5px 7px;
   translate: -50% -50%;
   border-radius: var(--nm-r-pill);
   background: rgb(var(--glass-rgb) / var(--glass-fill-float));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
   color: var(--nm-tomato);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   pointer-events: none;
-  animation: none;
 }
 
 .tomato-ghost img {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   -webkit-user-drag: none;
 }
 
-.tomato:active {
-  cursor: grabbing;
-  box-shadow: var(--nm-in-sm);
-  transform: translateY(1px);
-}
+/* ---------- 卡片上：计时高亮 + 番茄标记 ---------- */
 
-.tomato__body {
-  position: relative;
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-}
-
-.tomato__img {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  object-fit: contain;
-  /* 生图给的图标自带一层柔和阴影，这里补一点外投影让它「浮」在托盘上 */
-  filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--nm-tomato) 38%, transparent));
-  -webkit-user-drag: none;
-}
-
-.tomato__img.is-small {
-  width: 20px;
-  height: 20px;
-}
-
-.tomato__body--sm {
-  width: 14px;
-  height: 14px;
-}
-
-/* 顶上那撮叶子 */
-.tomato__leaf {
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  width: 10px;
-  height: 6px;
-  transform: translateX(-50%);
-  border-radius: 3px 3px 0 0;
-  background: #4fae63;
-}
-
-.tomato__text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.tomato__text b {
-  color: var(--nm-text-strong);
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.tomato__text em {
-  color: var(--nm-muted);
-  font-size: 11px;
-  font-style: normal;
-}
-
-.tomatoes__rule {
-  width: 1px;
-  height: 22px;
-  background: var(--nm-hair);
-}
-
-.tomatoes__running {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--nm-tomato);
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.tomatoes__hint {
-  color: var(--nm-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* ---------- 托盘上的工具快捷方式 ---------- */
-
-.tray-tools {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tray-tool {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--glass-edge-soft);
-  border-radius: var(--nm-r-sm);
-  background: rgb(var(--glass-rgb) / var(--glass-fill-control));
-  color: var(--nm-text);
-  cursor: pointer;
-  box-shadow: var(--nm-out-sm);
-  transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
-}
-
-.tray-tool:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--nm-out);
-}
-
-.tray-tool:active {
-  transform: translateY(1px);
-  box-shadow: var(--nm-in-sm);
-}
-
-.tray-tool--ghost {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--nm-muted);
-}
-
-.tray-tool--ghost:hover {
-  color: var(--nm-accent);
-  box-shadow: var(--nm-out-sm);
-}
-
-.tray-tool__icon {
-  font-size: 15px;
-  line-height: 1;
-}
-
-/* ---------- 面板背景上的倒计时 ---------- */
-
-.countdown {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  color: var(--nm-tomato);
-  font-size: clamp(96px, 20vw, 260px);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.16;
-  animation: fade-in 500ms var(--nm-ease-out) both;
-}
-
-/* ---------- 卡片上 ---------- */
-
-/* 正在计时：一圈番茄色呼吸灯，别让它变成「选中」的样子。 */
 .card.is-timing {
   box-shadow: var(--card-shadow-front), 0 0 0 3px var(--nm-tomato-soft);
   animation: tomato-breathe 2.4s var(--nm-ease) infinite;
@@ -257,7 +216,7 @@
   }
 }
 
-/* 打完的番茄：卡片底边右侧一排小方块（不影响完成状态）。 */
+/* 打完的番茄：卡片底边右侧一排小方块（不影响完成状态） */
 .card__toms {
   position: absolute;
   right: 12px;
@@ -286,12 +245,26 @@
   font-weight: 700;
 }
 
+/* ---------- 面板背景上的倒计时（.countdown 在 app.css 里，这里只管配色） ---------- */
+
 @media (max-width: 660px) {
-  .tomatoes__hint {
+  .tray__empty {
     display: none;
   }
 
-  .tomato__text em {
-    display: none;
+  .tray-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .tray-btn.is-lg {
+    width: 44px;
+    height: 44px;
+  }
+
+  .tray-btn img,
+  .tray-btn.is-lg img {
+    width: 30px;
+    height: 30px;
   }
 }

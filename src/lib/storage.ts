@@ -40,6 +40,9 @@ export const DEFAULT_SETTINGS: Settings = {
   pomodoroShort: 15,
   pomodoroLong: 30,
   trayTools: [],
+  trayShowPomodoro: true,
+  trayShowTools: true,
+  trayAlign: 'center',
 }
 
 const TRAY_KINDS = ['action', 'open', 'command']
@@ -184,6 +187,12 @@ export function parseState(raw: unknown): BoardState | null {
       pomodoroShort: clampNumber(settingsRaw.pomodoroShort, 1, 180, DEFAULT_SETTINGS.pomodoroShort),
       pomodoroLong: clampNumber(settingsRaw.pomodoroLong, 1, 300, DEFAULT_SETTINGS.pomodoroLong),
       trayTools: readTrayTools(settingsRaw.trayTools),
+      trayShowPomodoro: settingsRaw.trayShowPomodoro !== false,
+      trayShowTools: settingsRaw.trayShowTools !== false,
+      trayAlign:
+        settingsRaw.trayAlign === 'left' || settingsRaw.trayAlign === 'right'
+          ? settingsRaw.trayAlign
+          : 'center',
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import tomatoSmall from '../../assets/tomato-small.png'
 import tomatoBig from '../../assets/tomato-big.png'
 import { TRAY_KIND_LABELS } from '../lib/types'
 import type { TrayTool } from '../lib/types'
-import { NeuButton } from './controls'
-import { IconClose } from './icons'
+import { IconClose, IconPlus } from './icons'
 
 export interface TomatoDragPayload {
   minutes: number
@@ -15,20 +14,56 @@ export interface TomatoDragPayload {
 export interface TomatoBarProps {
   shortMinutes: number
   longMinutes: number
-  /** 正在跑的番茄钟：显示剩余时间和取消按钮。 */
+  /** 正在跑的番茄钟：显示剩余时间和取消。 */
   runningLabel: string | null
   runningClock: string | null
-  /** 托盘上的快捷方式。 */
   tools: TrayTool[]
+  showPomodoro: boolean
+  showTools: boolean
+  align: 'center' | 'left' | 'right'
   onRunTool: (tool: TrayTool) => void
   onEditTools: () => void
   onCancel: () => void
-  /** 拖着番茄经过某张卡片（null = 不在任何卡片上），用来高亮目标。 */
   onHoverCard: (cardId: string | null) => void
-  /** 松手时落在某张卡片上。 */
   onDropOnCard: (cardId: string, tomato: TomatoDragPayload) => void
-  /** 松手时没落在卡片上。 */
   onDropNothing: () => void
+}
+
+/** 面板里的圆形按钮：托盘的统一手感，图标是 emoji 或者图片。 */
+function TrayButton({
+  label,
+  onClick,
+  children,
+  tone,
+  size = 'md',
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  label: string
+  onClick?: () => void
+  children: ReactNode
+  tone?: 'tomato' | 'ghost'
+  size?: 'md' | 'lg'
+  onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`tray-btn${tone ? ` tray-btn--${tone}` : ''}${size === 'lg' ? ' is-lg' : ''}`}
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      {children}
+    </button>
+  )
 }
 
 function cardIdAt(x: number, y: number): string | null {
@@ -37,17 +72,16 @@ function cardIdAt(x: number, y: number): string | null {
 }
 
 /**
- * 一颗可以拖到卡片上的番茄。
+ * 一颗可以拖到卡片上的番茄（圆形按钮）。
  *
  * 这里**不用 HTML5 拖放**：桌面端窗口为了接住系统拖进来的文件，开着 dragDropEnabled，
  * 真实鼠标拖拽会被系统那层吃掉，DOM 的 dragstart/drop 根本不来（合成事件却会来，
  * 所以自动化测试反而是绿的）。改成 pointer 事件自己实现，顺带能做跟手的拖影和目标高亮。
  */
-function Tomato({
+function TomatoButton({
   src,
   minutes,
   label,
-  small,
   onHoverCard,
   onDropOnCard,
   onDropNothing,
@@ -55,7 +89,6 @@ function Tomato({
   src: string
   minutes: number
   label: string
-  small?: boolean
   onHoverCard: (cardId: string | null) => void
   onDropOnCard: (cardId: string, tomato: TomatoDragPayload) => void
   onDropNothing: () => void
@@ -64,7 +97,7 @@ function Tomato({
   const draggingRef = useRef(false)
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
 
-  const handleDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -73,7 +106,7 @@ function Tomato({
     setGhost({ x: event.clientX, y: event.clientY })
   }
 
-  const handleMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!draggingRef.current) return
     setGhost({ x: event.clientX, y: event.clientY })
     const id = cardIdAt(event.clientX, event.clientY)
@@ -83,7 +116,7 @@ function Tomato({
     }
   }
 
-  const handleUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!draggingRef.current) return
     draggingRef.current = false
     setGhost(null)
@@ -99,20 +132,16 @@ function Tomato({
 
   return (
     <>
-      <div
-        className={`tomato${ghost ? ' is-dragging' : ''}`}
-        title={`按住拖到某张卡片上，开始 ${minutes} 分钟`}
+      <TrayButton
+        label={`${label} ${minutes} 分钟 · 按住拖到某张卡片上开始计时`}
+        tone="tomato"
+        size="lg"
         onPointerDown={handleDown}
         onPointerMove={handleMove}
         onPointerUp={handleUp}
-        onPointerCancel={handleUp}
       >
-        <img className={`tomato__img${small ? ' is-small' : ''}`} src={src} alt="" draggable={false} />
-        <span className="tomato__text">
-          <b>{label}</b>
-          <em>{minutes} 分钟</em>
-        </span>
-      </div>
+        <img src={src} alt="" draggable={false} />
+      </TrayButton>
       {ghost ? (
         <div className="tomato-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
           <img src={src} alt="" draggable={false} />
@@ -124,8 +153,9 @@ function Tomato({
 }
 
 /**
- * 界面下方的浮动托盘：两颗可以拖到卡片上的番茄，右侧挂自定义的快捷方式，
- * 计时中时再显示剩余时间和取消。
+ * 界面下方那块浮动面板：圆形按钮排成一排——
+ * 番茄（按住拖到卡片上开始计时）、自定义工具、末尾一个「＋」跳去设置，
+ * 计时中时右侧多一个剩余时间和取消。
  */
 export function TomatoBar({
   shortMinutes,
@@ -133,6 +163,9 @@ export function TomatoBar({
   runningLabel,
   runningClock,
   tools,
+  showPomodoro,
+  showTools,
+  align,
   onRunTool,
   onEditTools,
   onCancel,
@@ -140,61 +173,69 @@ export function TomatoBar({
   onDropOnCard,
   onDropNothing,
 }: TomatoBarProps) {
-  const tomatoProps = { onHoverCard, onDropOnCard, onDropNothing }
+  const hasTools = showTools && tools.length > 0
+  const empty = !showPomodoro && !hasTools && !runningClock
 
   return (
-    <div className="tomatoes" role="group" aria-label="番茄钟与工具">
-      <Tomato src={tomatoSmall} minutes={shortMinutes} label="小番茄" small {...tomatoProps} />
-      <Tomato src={tomatoBig} minutes={longMinutes} label="大番茄" {...tomatoProps} />
+    <div className={`tray tray--${align}`} role="group" aria-label="番茄钟与工具">
+      <div className="tray__inner">
+        {showPomodoro ? (
+          <TomatoButton
+            src={tomatoSmall}
+            minutes={shortMinutes}
+            label="小番茄"
+            onHoverCard={onHoverCard}
+            onDropOnCard={onDropOnCard}
+            onDropNothing={onDropNothing}
+          />
+        ) : null}
+        {showPomodoro ? (
+          <TomatoButton
+            src={tomatoBig}
+            minutes={longMinutes}
+            label="大番茄"
+            onHoverCard={onHoverCard}
+            onDropOnCard={onDropOnCard}
+            onDropNothing={onDropNothing}
+          />
+        ) : null}
 
-      {tools.length > 0 ? (
-        <>
-          <span className="tomatoes__rule" aria-hidden="true" />
-          <div className="tray-tools">
-            {tools.map((tool) => (
-              <button
+        {showPomodoro && (hasTools || runningClock) ? (
+          <span className="tray__rule" aria-hidden="true" />
+        ) : null}
+
+        {hasTools
+          ? tools.map((tool) => (
+              <TrayButton
                 key={tool.id}
-                type="button"
-                className="tray-tool"
-                title={`${tool.label} · ${TRAY_KIND_LABELS[tool.kind]}`}
-                aria-label={tool.label}
+                label={`${tool.label} · ${TRAY_KIND_LABELS[tool.kind]}`}
                 onClick={() => onRunTool(tool)}
               >
-                <span className="tray-tool__icon" aria-hidden="true">
-                  {tool.icon}
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="tray-tool tray-tool--ghost"
-              title="在设置里管理托盘工具"
-              aria-label="管理托盘工具"
-              onClick={onEditTools}
-            >
-              <span className="tray-tool__icon" aria-hidden="true">
-                ＋
-              </span>
-            </button>
-          </div>
-        </>
-      ) : null}
+                <span className="tray-btn__emoji">{tool.icon}</span>
+              </TrayButton>
+            ))
+          : null}
 
-      {runningClock ? (
-        <>
-          <span className="tomatoes__rule" aria-hidden="true" />
-          <span className="tomatoes__running" title={`${runningLabel} 进行中`}>
-            <img className="tomato__img is-small" src={tomatoSmall} alt="" aria-hidden="true" />
-            {runningClock}
-          </span>
-          <NeuButton size="sm" aria-label="取消番茄钟" title="取消这个番茄钟" onClick={onCancel}>
-            <IconClose size={14} />
-            取消
-          </NeuButton>
-        </>
-      ) : tools.length === 0 ? (
-        <span className="tomatoes__hint">拖到卡片上开始计时</span>
-      ) : null}
+        {showTools ? (
+          <TrayButton label="在设置里配置这个面板" tone="ghost" onClick={onEditTools}>
+            <IconPlus size={18} />
+          </TrayButton>
+        ) : null}
+
+        {runningClock ? (
+          <>
+            <span className="tray__rule" aria-hidden="true" />
+            <span className="tray__clock" title={`${runningLabel} 进行中`}>
+              {runningClock}
+            </span>
+            <TrayButton label="取消番茄钟" tone="ghost" onClick={onCancel}>
+              <IconClose size={16} />
+            </TrayButton>
+          </>
+        ) : null}
+
+        {empty ? <span className="tray__empty">托盘里还没有东西，去设置里配一下</span> : null}
+      </div>
     </div>
   )
 }

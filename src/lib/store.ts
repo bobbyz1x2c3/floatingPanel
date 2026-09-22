@@ -105,6 +105,13 @@ const EXAMPLE_SEEDS: CardSeed[] = [
     width: 344,
     height: 226,
   },
+  {
+    title: '番茄钟怎么用',
+    body: '按住下方托盘里的番茄，拖到某张卡片上松手，那张卡片就开始倒计时：\n\n· 面板背景上会出现很大的剩余时间，卡片也会亮起呼吸圈；\n· 到点会响一声钟、屏幕上弹「时间到」，并在卡片底边留下一颗小方块，打完几次就攒几颗；\n· 中途想停，点托盘上的取消；\n· 大小番茄各多少分钟、托盘显示什么、贴哪边，都在设置里改。\n\n番茄钟只负责计时，不会改变卡片的完成状态。',
+    quadrant: 'drop',
+    width: 372,
+    height: 316,
+  },
 ]
 
 interface BuildSeed extends Partial<CardSeed> {

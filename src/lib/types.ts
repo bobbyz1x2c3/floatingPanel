@@ -86,6 +86,10 @@ export interface Settings {
   pomodoroLong: number
   /** 下方托盘上的快捷方式。 */
   trayTools: TrayTool[]
+  /** 下方托盘：显示番茄 / 显示工具 / 贴哪边。 */
+  trayShowPomodoro: boolean
+  trayShowTools: boolean
+  trayAlign: 'center' | 'left' | 'right'
 }
 
 export interface BoardState {
