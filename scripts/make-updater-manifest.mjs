@@ -21,7 +21,9 @@ import { join, basename, resolve } from 'node:path'
 
 const RULES = [
   { keys: ['windows-x86_64-nsis', 'windows-x86_64'], match: /-setup\.exe$/i },
-  { keys: ['windows-x86_64-msi'], match: /\.msi$/i },
+  // 除 MSI 外，每个矩阵平台都是更新清单的必需项；缺产物或签名不能静默跳过。
+  // MSI 只是给人手动下载的备选，它有没有签名不该挡住整份清单。
+  { keys: ['windows-x86_64-msi'], match: /\.msi$/i, optional: true },
   { keys: ['darwin-aarch64'], match: /\.app\.tar\.gz$/i, include: /aarch64/i },
   { keys: ['darwin-x86_64'], match: /\.app\.tar\.gz$/i, exclude: /aarch64/i },
   { keys: ['linux-x86_64-appimage', 'linux-x86_64'], match: /\.appimage$/i },
@@ -97,14 +99,25 @@ for (const rule of RULES) {
     .filter((name) => !rule.include || rule.include.test(name))
     .filter((name) => !rule.exclude || !rule.exclude.test(name))
     .sort()
-  if (candidates.length === 0) continue
+  if (candidates.length === 0) {
+    if (!rule.optional) {
+      console.error(`[manifest] ${rule.keys.join(' / ')} 没有匹配到更新产物`)
+      missing += 1
+    }
+    continue
+  }
   if (candidates.length > 1) {
     console.warn(`[manifest] ${rule.keys[0]} 匹配到多个产物，取第一个：${candidates.join('、')}`)
   }
   const name = candidates[0]
   const signature = sigFor(name)
   if (!signature) {
-    console.error(`[manifest] ${name} 旁边没有 .sig，跳过（确认 createUpdaterArtifacts 打开、签名密钥配了）`)
+    const hint = '确认 createUpdaterArtifacts 打开、签名密钥配了'
+    if (rule.optional) {
+      console.warn(`[manifest] ${name} 旁边没有 .sig，跳过这一条（${hint}）`)
+      continue
+    }
+    console.error(`[manifest] ${name} 旁边没有 .sig，跳过（${hint}）`)
     missing += 1
     continue
   }
@@ -121,7 +134,7 @@ for (const rule of RULES) {
 }
 
 if (Object.keys(platforms).length === 0) fail('一个平台的更新产物都没匹配到')
-if (missing > 0) fail(`${missing} 个平台缺签名，不写清单了`)
+if (missing > 0) fail(`${missing} 个必需平台缺更新产物或签名，不写清单了`)
 
 const notes = typeof args.notes === 'string' ? readFileSync(resolve(args.notes), 'utf8') : ''
 writeFileSync(

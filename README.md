@@ -273,15 +273,16 @@ nemu board                      # 各象限分布 + 状态文件路径
   "notes": "这一版干了什么",
   "pub_date": "2026-09-23T00:00:00Z",
   "platforms": {
-    "windows-x86_64": { "signature": "……", "url": "……/NemuFloat_0.2.0_x64-setup.nsis.zip" }
+    "windows-x86_64": { "signature": "……", "url": "……/NemuFloat_0.2.0_x64-setup.exe" }
   }
 }
 ```
 
-Tauri 打包时每个平台各写一份只含自己的 `latest.json`，所以 release 流程里专门有一个 `manifest` 步骤：
-各平台先把清单传成 `latest-<平台>.json`，等 matrix 全跑完再合并成正式的那一份（`platforms` 取并集、
-`notes` 换成当次 Release 说明），这样四个平台才都能收到更新提示。签名校验不过、清单 404、网络不通
-都会在设置里落成一句人话（「还没配置更新公钥」/「更新清单还没发布」/「网络不通，稍后再试」），不会静默失败。
+Tauri 打包时会给安装包写一份 `.sig` 签名，release 流程的 `manifest` 步骤会把四个平台的产物下载回来，
+用 `scripts/make-updater-manifest.mjs` 汇成一份正式的 `latest.json`（`platforms` 取并集、`notes` 用当次
+Release 说明）。必需平台缺产物或签名会让这一步失败，不会发布一份悄悄少平台的清单。
+签名校验不过、清单 404、网络不通都会在设置里落成一句人话（「还没配置更新公钥」/「更新清单还没发布」/
+「网络不通，稍后再试」），不会静默失败。
 
 自己发一个新版本：
 
@@ -304,7 +305,7 @@ npx tauri signer generate -w ~/.nemufloat/nemufloat.key
 
 | workflow | 什么时候跑 | 做什么 |
 | --- | --- | --- |
-| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再按平台矩阵并行打包，把安装包（Windows NSIS+MSI / macOS 双架构 dmg / Linux AppImage+deb）、自动更新用的压缩包（`.nsis.zip` / `.app.tar.gz`）、`.sig` 签名一起传成同一个版本的附件，最后把各平台清单合并成一份 `latest.json` |
+| `.github/workflows/release.yml` | 推 `v*` 标签（或手动指定 tag） | 先建 Release，再按平台矩阵并行打包，把安装包和更新产物（Windows NSIS+MSI / macOS 双架构 app+dmg / Linux AppImage+deb）连同 `.sig` 签名传成同一个版本的附件，最后把各平台清单合并成一份 `latest.json` |
 | `.github/workflows/pages.yml` | `docs/` 有改动、或手动触发、或 Release 完成后自动调一次 | 用 token 把 Release 列表取成 `docs/releases.json`，再把 `docs/` 发到 GitHub Pages |
 
 版本清单是**部署时用 token 生成**的，所以私有仓库也能正常显示，页面自己不需要任何凭证；

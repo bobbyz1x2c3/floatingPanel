@@ -57,12 +57,12 @@ jobs:
           - name: macOS (Apple Silicon)
             slug: darwin-aarch64
             os: macos-latest
-            args: "--bundles dmg --target aarch64-apple-darwin"
+            args: "--bundles app,dmg --target aarch64-apple-darwin"
             target: aarch64-apple-darwin
           - name: macOS (Intel)
             slug: darwin-x86_64
             os: macos-latest
-            args: "--bundles dmg --target x86_64-apple-darwin"
+            args: "--bundles app,dmg --target x86_64-apple-darwin"
             target: x86_64-apple-darwin
           - name: Linux x64
             slug: linux-x86_64
@@ -128,6 +128,15 @@ jobs:
           done < <(find src-tauri/target -path "*/release/bundle/*" -type f \
             \( -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) \
             | grep -v -E "/(debug|\.tmp)/" | sort)
+
+          # updater 目标没真正生成时不能只上传 dmg/exe 然后让后续清单“成功”缺平台。
+          sig_count=$(find src-tauri/target -path "*/release/bundle/*" -type f -name "*.sig" \
+            | grep -v -E "/(debug|\.tmp)/" | wc -l | tr -d '[:space:]')
+          if [ "$sig_count" -eq 0 ]; then
+            echo "这个平台没有生成 updater 签名，检查 bundle 目标和 createUpdaterArtifacts" >&2
+            exit 1
+          fi
+          echo "本平台找到 $sig_count 份 updater 签名"
 
           count=0
           # 安装包 + macOS 的更新包（.app.tar.gz）+ 每份安装包的 .sig 签名。

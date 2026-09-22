@@ -5,8 +5,7 @@ import { isDesktop } from './platform'
  *
  * 走的是 Tauri 官方的 updater 插件：配置在 src-tauri/tauri.conf.json 的 plugins.updater，
  * 里面写好了更新清单地址（GitHub Release 里的 latest.json）。
- * 现在 pubkey 还是空的，所以 check() 会直接返回错误——界面上会显示「还没配置更新源」，
- * 不会报一堆看不懂的东西。等仓库开始发 Release、把公钥填进去，这条链路就通了。
+ * 公钥已经随应用打包，检查失败会在这里转成人话；签名、清单和网络错误都交给 UI 显示。
  */
 
 export type UpdateState =
