@@ -90,6 +90,10 @@ export interface Settings {
   onlineBroker: string
   /** 上次加入的房间号，下次打开预填。 */
   lastRoom: string
+  /** 下方托盘：显示番茄 / 显示工具 / 贴哪边。 */
+  trayShowPomodoro: boolean
+  trayShowTools: boolean
+  trayAlign: 'center' | 'left' | 'right'
 }
 
 export interface BoardState {

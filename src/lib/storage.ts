@@ -42,6 +42,9 @@ export const DEFAULT_SETTINGS: Settings = {
   trayTools: [],
   onlineBroker: 'wss://broker.emqx.io:8084/mqtt',
   lastRoom: '',
+  trayShowPomodoro: true,
+  trayShowTools: true,
+  trayAlign: 'center',
 }
 
 const TRAY_KINDS = ['action', 'open', 'command']
@@ -192,6 +195,12 @@ export function parseState(raw: unknown): BoardState | null {
           : DEFAULT_SETTINGS.onlineBroker,
       lastRoom:
         typeof settingsRaw.lastRoom === 'string' ? settingsRaw.lastRoom.trim().slice(0, 24) : '',
+      trayShowPomodoro: settingsRaw.trayShowPomodoro !== false,
+      trayShowTools: settingsRaw.trayShowTools !== false,
+      trayAlign:
+        settingsRaw.trayAlign === 'left' || settingsRaw.trayAlign === 'right'
+          ? settingsRaw.trayAlign
+          : 'center',
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

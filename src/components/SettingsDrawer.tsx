@@ -46,6 +46,12 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: '跟随系统' },
 ]
 
+const TRAY_ALIGNS: { value: Settings['trayAlign']; label: string }[] = [
+  { value: 'left', label: '靠左' },
+  { value: 'center', label: '居中' },
+  { value: 'right', label: '靠右' },
+]
+
 export function SettingsDrawer({
   settings,
   isDesktop,
@@ -254,6 +260,34 @@ export function SettingsDrawer({
         <p className="drawer__note">
           挂在下方托盘上的快捷方式：内置动作、打开链接 / 文件，或者执行一条命令（命令直接交给系统跑，只填自己信得过的）。
         </p>
+
+        <DrawerRow title="显示番茄" hint="大小番茄两个圆形按钮（按住拖到卡片上计时）">
+          <NeuSwitch
+            label="显示番茄"
+            checked={settings.trayShowPomodoro}
+            onChange={(value) => onPatch({ trayShowPomodoro: value })}
+          />
+        </DrawerRow>
+        <DrawerRow title="显示工具" hint="自定义快捷方式和末尾那个「＋」">
+          <NeuSwitch
+            label="显示工具"
+            checked={settings.trayShowTools}
+            onChange={(value) => onPatch({ trayShowTools: value })}
+          />
+        </DrawerRow>
+        <DrawerRow title="面板位置" hint="托盘贴在窗口下方哪一边">
+          <div className="drawer__chips">
+            {TRAY_ALIGNS.map((option) => (
+              <NeuChip
+                key={option.value}
+                active={settings.trayAlign === option.value}
+                onClick={() => onPatch({ trayAlign: option.value })}
+              >
+                {option.label}
+              </NeuChip>
+            ))}
+          </div>
+        </DrawerRow>
 
         {settings.trayTools.length > 0 ? (
           <ul className="tray-list">

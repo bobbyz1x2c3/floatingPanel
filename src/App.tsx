@@ -953,6 +953,9 @@ export function App() {
           runningLabel={pomodoro?.label ?? null}
           runningClock={pomodoro ? formatClock(remaining) : null}
           tools={settings.trayTools}
+          showPomodoro={settings.trayShowPomodoro}
+          showTools={settings.trayShowTools}
+          align={settings.trayAlign}
           onRunTool={(tool) => void runTrayTool(tool)}
           onEditTools={() => {
             setSettingsOpen(true)
