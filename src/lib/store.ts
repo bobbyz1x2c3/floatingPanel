@@ -486,6 +486,15 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
     case 'clearArchived':
       return { ...state, archived: [] }
 
+    case 'pomodoroDone':
+      // 番茄钟只给卡片记一笔标记，不动它的完成 / 归档状态。
+      return {
+        ...state,
+        cards: state.cards.map((card) =>
+          card.id === action.id ? { ...card, pomodoros: card.pomodoros + 1 } : card,
+        ),
+      }
+
     default:
       return state
   }
