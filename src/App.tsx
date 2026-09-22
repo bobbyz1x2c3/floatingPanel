@@ -34,8 +34,7 @@ import {
 import type { NativeDrop } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
 import { startAudio, stopAudio } from './lib/audio'
-import { formatClock, readTomatoDrop } from './lib/pomodoro'
-import { TOMATO_MIME } from './lib/pomodoro'
+import { formatClock } from './lib/pomodoro'
 import type { TrayTool } from './lib/types'
 import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
 import type { UpdateState } from './lib/update'
@@ -512,40 +511,6 @@ export function App() {
     return () => window.clearInterval(timer)
   }, [pomodoro, finishPomodoro])
 
-  /** 从下方的番茄面板拖一颗到卡片上就开始计时（同时只留一个）。 */
-  useEffect(() => {
-    const onDragOver = (event: DragEvent) => {
-      if (!event.dataTransfer?.types.includes(TOMATO_MIME)) return
-      event.preventDefault()
-      event.dataTransfer.dropEffect = 'copy'
-      const id = cardIdAt(event.clientX, event.clientY)
-      if (id !== dropHoverId.current) {
-        dropHoverId.current = id
-        setDropTargetId(id)
-      }
-    }
-    const onDrop = (event: DragEvent) => {
-      const tomato = readTomatoDrop(event)
-      if (!tomato) return
-      event.preventDefault()
-      dropHoverId.current = null
-      setDropTargetId(null)
-      const id = cardIdAt(event.clientX, event.clientY)
-      if (!id) {
-        notify('把番茄拖到某张卡片上才开始计时')
-        return
-      }
-      setPomodoro({ cardId: id, endsAt: Date.now() + tomato.minutes * 60_000, label: tomato.label })
-      notify(`${tomato.label} · ${tomato.minutes} 分钟，开始计时`)
-    }
-    window.addEventListener('dragover', onDragOver)
-    window.addEventListener('drop', onDrop)
-    return () => {
-      window.removeEventListener('dragover', onDragOver)
-      window.removeEventListener('drop', onDrop)
-    }
-  }, [cardIdAt, notify])
-
   /**
    * 图片预览走独立窗口：主面板把这一张图写进 localStorage，
    * 预览窗按 id 读出来，两边互不阻塞，面板该拖该改都不受影响。
@@ -876,6 +841,20 @@ export function App() {
           onEditTools={() => {
             setSettingsOpen(true)
             setArchiveOpen(false)
+          }}
+          onHoverCard={setDropTargetId}
+          onDropOnCard={(cardId, tomato) => {
+            setDropTargetId(null)
+            setPomodoro({
+              cardId,
+              endsAt: Date.now() + tomato.minutes * 60_000,
+              label: tomato.label,
+            })
+            notify(`${tomato.label} · ${tomato.minutes} 分钟，开始计时`)
+          }}
+          onDropNothing={() => {
+            setDropTargetId(null)
+            notify('把番茄拖到某张卡片上才开始计时')
           }}
           onCancel={() => {
             setPomodoro(null)

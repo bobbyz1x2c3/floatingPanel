@@ -53,6 +53,38 @@
   transform: translateY(-1px);
 }
 
+.tomato.is-dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+/* 跟手的拖影：跟着光标走，不参与命中测试 */
+.tomato-ghost {
+  position: fixed;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  translate: -50% -50%;
+  border-radius: var(--nm-r-pill);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-float));
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  color: var(--nm-tomato);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: none;
+}
+
+.tomato-ghost img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
 .tomato:active {
   cursor: grabbing;
   box-shadow: var(--nm-in-sm);
