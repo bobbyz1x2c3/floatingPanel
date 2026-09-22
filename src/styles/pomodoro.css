@@ -1,0 +1,203 @@
+/*
+  番茄钟：下方浮动面板 + 面板背景上的倒计时 + 卡片上的标记。
+  配色用一个固定的番茄红，和强调色分开，一眼能认出是「番茄」而不是别的状态。
+*/
+
+:root {
+  --nm-tomato: #f2662e;
+  --nm-tomato-soft: rgba(242, 102, 46, 0.16);
+}
+
+/* ---------- 下方浮动面板 ---------- */
+
+.tomatoes {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 58;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  transform: translateX(-50%);
+  border-radius: var(--nm-r-pill);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-float));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  animation: toast-in 260ms var(--nm-ease-out) both;
+}
+
+/* 开着频谱 / 提示条的时候把番茄面板抬起来，互不遮挡。 */
+.shell.is-audio .tomatoes {
+  bottom: 78px;
+}
+
+.tomato {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 13px 5px 7px;
+  border-radius: var(--nm-r-pill);
+  background: var(--control, rgb(var(--glass-rgb) / var(--glass-fill-control)));
+  border: 1px solid var(--edge-soft, var(--glass-edge-soft));
+  box-shadow: var(--nm-out-sm);
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow var(--nm-t) var(--nm-ease), transform var(--nm-t) var(--nm-ease);
+}
+
+.tomato:hover {
+  box-shadow: var(--nm-out);
+  transform: translateY(-1px);
+}
+
+.tomato:active {
+  cursor: grabbing;
+  box-shadow: var(--nm-in-sm);
+  transform: translateY(1px);
+}
+
+.tomato__body {
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ff9a6d, var(--nm-tomato) 62%);
+  box-shadow: inset -2px -2px 4px rgba(140, 40, 10, 0.35), 0 2px 5px -2px color-mix(in srgb, var(--nm-tomato) 70%, transparent);
+}
+
+.tomato__body--sm {
+  width: 14px;
+  height: 14px;
+}
+
+/* 顶上那撮叶子 */
+.tomato__leaf {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateX(-50%);
+  border-radius: 3px 3px 0 0;
+  background: #4fae63;
+}
+
+.tomato__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.tomato__text b {
+  color: var(--nm-text-strong);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.tomato__text em {
+  color: var(--nm-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.tomatoes__rule {
+  width: 1px;
+  height: 22px;
+  background: var(--nm-hair);
+}
+
+.tomatoes__running {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--nm-tomato);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tomatoes__hint {
+  color: var(--nm-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- 面板背景上的倒计时 ---------- */
+
+.countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--nm-tomato);
+  font-size: clamp(96px, 20vw, 260px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.16;
+  animation: fade-in 500ms var(--nm-ease-out) both;
+}
+
+/* ---------- 卡片上 ---------- */
+
+/* 正在计时：一圈番茄色呼吸灯，别让它变成「选中」的样子。 */
+.card.is-timing {
+  box-shadow: var(--card-shadow-front), 0 0 0 3px var(--nm-tomato-soft);
+  animation: tomato-breathe 2.4s var(--nm-ease) infinite;
+}
+
+@keyframes tomato-breathe {
+  0%,
+  100% {
+    box-shadow: var(--card-shadow-front), 0 0 0 2px var(--nm-tomato-soft);
+  }
+  50% {
+    box-shadow: var(--card-shadow-front), 0 0 0 6px var(--nm-tomato-soft);
+  }
+}
+
+/* 打完的番茄：卡片底边右侧一排小方块（不影响完成状态）。 */
+.card__toms {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: var(--nm-r-sm);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
+  box-shadow: var(--nm-flat-in);
+  pointer-events: none;
+}
+
+.card__tom {
+  width: 9px;
+  height: 9px;
+  border-radius: 2.5px;
+  background: radial-gradient(circle at 34% 30%, #ff9a6d, var(--nm-tomato) 70%);
+}
+
+.card__toms em {
+  color: var(--nm-tomato);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+@media (max-width: 660px) {
+  .tomatoes__hint {
+    display: none;
+  }
+
+  .tomato__text em {
+    display: none;
+  }
+}

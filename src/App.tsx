@@ -11,6 +11,7 @@ import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { Spectrum } from './components/Spectrum'
+import { TomatoBar } from './components/TomatoBar'
 import { TopBar } from './components/TopBar'
 import {
   MAX_ATTACHMENTS,
@@ -31,6 +32,8 @@ import {
 import type { NativeDrop } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
 import { startAudio, stopAudio } from './lib/audio'
+import { formatClock, readTomatoDrop } from './lib/pomodoro'
+import { TOMATO_MIME } from './lib/pomodoro'
 import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
 import type { UpdateState } from './lib/update'
 import {
@@ -45,9 +48,11 @@ import { boardReducer, createInitialState } from './lib/store'
 import { quadrantFromPoint, zoneSizeFor } from './lib/types'
 import type { Attachment, CardData, Settings, ZoneSize } from './lib/types'
 import { playCompleteSound } from './lib/sound'
+import { playTimerSound } from './lib/sound'
 import './styles/tokens.css'
 import './styles/neumorphism.css'
 import './styles/app.css'
+import './styles/pomodoro.css'
 
 const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
@@ -60,6 +65,8 @@ const TOAST_OUT = 200
 const FLASH_DURATION = 1100
 /** 「整理」时给卡片位移留的过渡时间窗口。 */
 const ARRANGE_MOTION = 460
+/** 番茄钟的剩余时间刷新间隔：一秒一次就够，250ms 让数字跳变更跟手。 */
+const TIMER_TICK = 250
 
 /** 四象限的可用区域 = .board 的内容盒（扣掉内边距）。 */
 function measureBoardViewport(element: HTMLElement) {
@@ -99,6 +106,11 @@ export function App() {
   const [toastLeaving, setToastLeaving] = useState(false)
   const [flash, setFlash] = useState<{ id: number; text: string } | null>(null)
   const [arranging, setArranging] = useState(false)
+  /** 正在跑的番茄钟（同一时间只允许一个）。 */
+  const [pomodoro, setPomodoro] = useState<{ cardId: string; endsAt: number; label: string } | null>(null)
+  const [remaining, setRemaining] = useState(0)
+  const pomodoroRef = useRef(pomodoro)
+  pomodoroRef.current = pomodoro
   const [version, setVersion] = useState('—')
   const [update, setUpdate] = useState<UpdateState>(IDLE_UPDATE)
   const [now, setNow] = useState(() => Date.now())
@@ -125,6 +137,8 @@ export function App() {
   stateRef.current = state
 
   const { cards, archived, settings } = state
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
 
   // 四象限跟着窗口走：每格恒等于可视区的一半（低于最小值时才开始滚动）。
   useLayoutEffect(() => {
@@ -469,6 +483,66 @@ export function App() {
     [settings.soundOnComplete],
   )
 
+  /** 番茄钟走完：给卡片记一笔、响钟、来一发大字。 */
+  const finishPomodoro = useCallback(() => {
+    const current = pomodoroRef.current
+    setPomodoro(null)
+    setRemaining(0)
+    if (!current) return
+    dispatch({ type: 'pomodoroDone', id: current.cardId })
+    if (settingsRef.current.soundOnComplete) playTimerSound()
+    setFlash({ id: Date.now(), text: '时间到' })
+    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setFlash(null), FLASH_DURATION)
+  }, [])
+
+  // 番茄钟倒计时：每秒刷数字，到点收尾。
+  useEffect(() => {
+    if (!pomodoro) return
+    const tick = () => {
+      const left = pomodoro.endsAt - Date.now()
+      setRemaining(left)
+      if (left <= 0) finishPomodoro()
+    }
+    tick()
+    const timer = window.setInterval(tick, TIMER_TICK)
+    return () => window.clearInterval(timer)
+  }, [pomodoro, finishPomodoro])
+
+  /** 从下方的番茄面板拖一颗到卡片上就开始计时（同时只留一个）。 */
+  useEffect(() => {
+    const onDragOver = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes(TOMATO_MIME)) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+      const id = cardIdAt(event.clientX, event.clientY)
+      if (id !== dropHoverId.current) {
+        dropHoverId.current = id
+        setDropTargetId(id)
+      }
+    }
+    const onDrop = (event: DragEvent) => {
+      const tomato = readTomatoDrop(event)
+      if (!tomato) return
+      event.preventDefault()
+      dropHoverId.current = null
+      setDropTargetId(null)
+      const id = cardIdAt(event.clientX, event.clientY)
+      if (!id) {
+        notify('把番茄拖到某张卡片上才开始计时')
+        return
+      }
+      setPomodoro({ cardId: id, endsAt: Date.now() + tomato.minutes * 60_000, label: tomato.label })
+      notify(`${tomato.label} · ${tomato.minutes} 分钟，开始计时`)
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [cardIdAt, notify])
+
   /**
    * 图片预览走独立窗口：主面板把这一张图写进 localStorage，
    * 预览窗按 id 读出来，两边互不阻塞，面板该拖该改都不受影响。
@@ -633,6 +707,13 @@ export function App() {
         {/* 频谱垫在所有卡片下面，是面板背景的一部分，不是浮层。 */}
         {settings.audioReactive ? <Spectrum label="系统音频" /> : null}
 
+        {/* 番茄钟进行中：面板背景上一个很大的剩余时间。 */}
+        {pomodoro ? (
+          <div className="countdown" aria-hidden="true">
+            {formatClock(remaining)}
+          </div>
+        ) : null}
+
         <TopBar
           isDesktop={isDesktop}
           platformLabel={platformLabel}
@@ -681,6 +762,7 @@ export function App() {
           onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
           moving={arranging}
+          timingId={pomodoro?.cardId ?? null}
           zone={zone}
           boardRef={boardRef}
           onBlurBoard={() => {
@@ -742,6 +824,18 @@ export function App() {
             <span className="flash__text">{flash.text}</span>
           </div>
         ) : null}
+
+        <TomatoBar
+          shortMinutes={settings.pomodoroShort}
+          longMinutes={settings.pomodoroLong}
+          runningLabel={pomodoro?.label ?? null}
+          runningClock={pomodoro ? formatClock(remaining) : null}
+          onCancel={() => {
+            setPomodoro(null)
+            setRemaining(0)
+            notify('已取消番茄钟')
+          }}
+        />
       </div>
     </div>
   )

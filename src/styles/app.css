@@ -334,11 +334,15 @@ body.is-desktop .shell::before {
     这样和拖动时的 transform: scale() 不会互相覆盖。
     延迟由 Board 按顺序给，一叠卡片会像翻牌一样依次落下来。
   */
-  /*
-    fill-mode 用 backwards 而不是 both：动画结束后要交还控制权，
-    否则动画里那个 opacity: 1 会一直压着 .is-dimmed / :hover 的透明度。
-    延迟期间仍然保持起始状态，所以依次落下的效果不受影响。
-  */
+}
+
+/*
+  入场 / 新增动效都靠类来挂，不写在 .card 上：
+  否则类被摘掉的时候（is-new 到期移除）基础动画会重新播一遍，看着就像播了两次。
+  用 translate / scale 这两个独立属性而不是 transform，免得和拖动时的 transform: scale() 打架；
+  fill-mode 用 backwards，动画结束后把 opacity 的控制权交还给 .is-dimmed / :hover。
+*/
+.card.is-entering {
   animation: card-in 300ms var(--nm-ease-out) backwards;
   animation-delay: var(--enter-delay, 0ms);
 }
@@ -361,6 +365,8 @@ body.is-desktop .shell::before {
   比首屏那批卡片的依次落下更明显一点，双击完立刻知道落在哪了。
 */
 .card.is-new {
+  /* 从鼠标落点（约等于卡片左上角）向右下「长」出一整张卡。 */
+  transform-origin: top left;
   animation: card-new 420ms var(--nm-ease-out) backwards;
   animation-delay: 0ms;
 }
@@ -368,11 +374,11 @@ body.is-desktop .shell::before {
 @keyframes card-new {
   0% {
     opacity: 0;
-    scale: 0.78;
+    scale: 0.12;
   }
-  62% {
+  58% {
     opacity: 1;
-    scale: 1.03;
+    scale: 1.04;
   }
   100% {
     opacity: 1;

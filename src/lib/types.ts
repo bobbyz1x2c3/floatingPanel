@@ -27,6 +27,8 @@ export interface CardData {
   height: number
   z: number
   collapsed: boolean
+  /** 已经打完的番茄钟个数（只做标记，不影响完成 / 归档状态）。 */
+  pomodoros: number
   createdAt: number
   updatedAt: number
 }
@@ -50,6 +52,10 @@ export interface Settings {
   audioReactive: boolean
   /** 启动后自动检查更新。 */
   autoCheckUpdate: boolean
+  /** 小番茄多少分钟。 */
+  pomodoroShort: number
+  /** 大番茄多少分钟。 */
+  pomodoroLong: number
 }
 
 export interface BoardState {

@@ -29,6 +29,8 @@ export interface BoardProps {
   onBlurBoard: () => void
   /** 正在「整理」：卡片换位置时走过渡。 */
   moving?: boolean
+  /** 正在跑番茄钟的卡片 id。 */
+  timingId?: string | null
 }
 
 function matchesQuery(card: CardData, query: string): boolean {
@@ -62,6 +64,7 @@ export function Board({
   onNotify,
   onBlurBoard,
   moving = false,
+  timingId = null,
 }: BoardProps) {
   // 画布至少铺满窗口（正好两格宽、两格高），卡片堆到外面时再撑大。
   const bounds = useMemo(() => {
@@ -84,6 +87,9 @@ export function Board({
   */
   const knownIds = useRef<Set<string>>(new Set())
   const seenFirstBatch = useRef(false)
+  /** 首屏那批：依次落下的入场动效。 */
+  const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set())
+  /** 之后新增的：从鼠标落点展开出来。 */
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
@@ -94,11 +100,14 @@ export function Board({
     for (const id of added) known.add(id)
     if (!seenFirstBatch.current) {
       seenFirstBatch.current = true
-      return
+      if (added.length === 0) return
+      setEnteringIds(new Set(added))
+      const first = window.setTimeout(() => setEnteringIds(new Set()), 1000)
+      return () => window.clearTimeout(first)
     }
     if (added.length === 0) return
     setFreshIds(new Set(added))
-    const timer = window.setTimeout(() => setFreshIds(new Set()), 600)
+    const timer = window.setTimeout(() => setFreshIds(new Set()), 700)
     return () => window.clearTimeout(timer)
   }, [cards])
   const matchCount = useMemo(
@@ -190,6 +199,8 @@ export function Board({
             onNotify={onNotify}
             moving={moving}
             isNew={freshIds.has(card.id)}
+            entering={enteringIds.has(card.id)}
+            timing={timingId === card.id}
           />
         ))}
 

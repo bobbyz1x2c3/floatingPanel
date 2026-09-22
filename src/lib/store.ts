@@ -41,6 +41,7 @@ export type BoardAction =
   | { type: 'restoreArchived'; id: string; zone: ZoneSize }
   | { type: 'deleteArchived'; id: string }
   | { type: 'clearArchived' }
+  | { type: 'pomodoroDone'; id: string }
 
 export const CARD_DEFAULT_WIDTH = 330
 export const CARD_DEFAULT_HEIGHT = 238
@@ -112,6 +113,7 @@ interface BuildSeed extends Partial<CardSeed> {
   x?: number
   y?: number
   attachments?: Attachment[]
+  pomodoros?: number
 }
 
 function buildCard(seed: BuildSeed): CardData {
@@ -133,6 +135,7 @@ function buildCard(seed: BuildSeed): CardData {
     height,
     z: seed.z,
     collapsed: false,
+    pomodoros: seed.pomodoros ?? 0,
     createdAt: now,
     updatedAt: now,
   }
@@ -302,6 +305,7 @@ function freeSpotFor(
     height,
     z: 0,
     collapsed: false,
+    pomodoros: 0,
     // 排到最后：新卡片只占现成的空位，不会把已有的卡片挤走。
     createdAt: Number.MAX_SAFE_INTEGER,
     updatedAt: 0,

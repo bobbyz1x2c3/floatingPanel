@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ComponentType, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
+import type { ComponentType, PointerEvent as ReactPointerEvent } from 'react'
 import {
   applyAlwaysOnTop,
   closeWindow,
@@ -405,7 +405,12 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
     paint()
   }
 
-  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+  /*
+    滚轮只用来缩放：滚动本身要拦掉，不然图片放不下时整个舞台会跟着上下滚。
+    React 的 onWheel 是被动监听，preventDefault() 在那里是空操作，所以这里手动
+    addEventListener 并把 passive 关掉。
+  */
+  const handleWheel = useCallback((event: WheelEvent) => {
     /*
       滚轮直接缩放（以光标为中心）。按住 Shift 时不拦，
       留给滚动条自己去滚——放大之后想平移还有右键 / 中键 / 空格拖拽。
@@ -427,7 +432,14 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
       vy,
     }
     setZoom(next)
-  }
+  }, [])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    stage.addEventListener('wheel', handleWheel, { passive: false })
+    return () => stage.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   const title = payload?.name ?? '图片预览'
 
@@ -620,7 +632,7 @@ export function PreviewWindow({ payloadId }: PreviewWindowProps) {
         </NeuButton>
       </header>
 
-      <div className="pv__stage nm-scroll" ref={stageRef} onWheel={handleWheel}>
+      <div className="pv__stage nm-scroll" ref={stageRef}>
         <div
           className="pv__sheet"
           style={{ width: view?.w ?? 0, height: view?.h ?? 0 }}

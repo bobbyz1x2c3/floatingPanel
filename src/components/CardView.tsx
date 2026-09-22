@@ -54,6 +54,10 @@ export interface CardViewProps {
   moving?: boolean
   /** 刚新建出来的卡片：播一个展开动效。 */
   isNew?: boolean
+  /** 首屏那批：播依次落下的入场动效。 */
+  entering?: boolean
+  /** 这张卡片上正在跑番茄钟：高亮一下。 */
+  timing?: boolean
 }
 
 interface DragOrigin {
@@ -103,6 +107,8 @@ export function CardView({
   enterIndex = 0,
   moving = false,
   isNew = false,
+  entering = false,
+  timing = false,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
   const edgeRef = useRef<ResizeEdge | null>(null)
@@ -369,11 +375,13 @@ export function CardView({
     card.collapsed && 'is-collapsed',
     dimmed && 'is-dimmed',
     matched && 'is-match',
+    timing && 'is-timing',
     archiving && 'is-archiving',
     removing && 'is-removing',
     toggling && 'is-toggling',
     moving && 'is-moving',
     isNew && 'is-new',
+    entering && 'is-entering',
     gesture === 'drag' && snap && 'is-snapping',
     (dropActive || dropTarget) && 'is-drop',
   ]
@@ -542,6 +550,16 @@ export function CardView({
             </div>
           ))}
         </div>
+      ) : null}
+
+      {/* 打完的番茄钟：卡片底边上一排小标记，不影响完成 / 归档状态。 */}
+      {card.pomodoros > 0 ? (
+        <span className="card__toms" title={`已打完 ${card.pomodoros} 个番茄钟`}>
+          {Array.from({ length: Math.min(card.pomodoros, 6) }, (_, index) => (
+            <span key={index} className="card__tom" />
+          ))}
+          {card.pomodoros > 6 ? <em>+{card.pomodoros - 6}</em> : null}
+        </span>
       ) : null}
 
       {RESIZE_EDGES.map((edge) => (

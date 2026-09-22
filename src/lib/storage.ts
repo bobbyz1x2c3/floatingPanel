@@ -35,6 +35,8 @@ export const DEFAULT_SETTINGS: Settings = {
   soundOnComplete: true,
   audioReactive: false,
   autoCheckUpdate: true,
+  pomodoroShort: 15,
+  pomodoroLong: 30,
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -98,6 +100,7 @@ function readCard(raw: unknown, index: number): CardData | null {
     height: clampNumber(source.height, CARD_MIN_HEIGHT, 800, 230),
     z: clampNumber(source.z, 1, 999999, index + 1),
     collapsed: source.collapsed === true,
+    pomodoros: clampNumber(source.pomodoros, 0, 999, 0),
     createdAt: clampNumber(source.createdAt, 0, Number.MAX_SAFE_INTEGER, now),
     updatedAt: clampNumber(source.updatedAt, 0, Number.MAX_SAFE_INTEGER, now),
   }
@@ -150,6 +153,8 @@ export function parseState(raw: unknown): BoardState | null {
       soundOnComplete: settingsRaw.soundOnComplete !== false,
       audioReactive: settingsRaw.audioReactive === true,
       autoCheckUpdate: settingsRaw.autoCheckUpdate !== false,
+      pomodoroShort: clampNumber(settingsRaw.pomodoroShort, 1, 180, DEFAULT_SETTINGS.pomodoroShort),
+      pomodoroLong: clampNumber(settingsRaw.pomodoroLong, 1, 300, DEFAULT_SETTINGS.pomodoroLong),
     },
     nextZ: clampNumber(source.nextZ, 1, 999999, cards.length + 1),
     activeId: null,

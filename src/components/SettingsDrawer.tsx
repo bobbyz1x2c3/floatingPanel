@@ -198,6 +198,36 @@ export function SettingsDrawer({
       <hr className="nm-divider" />
 
       <div className="drawer__group">
+        <span className="nm-label">番茄钟</span>
+        <DrawerRow title="小番茄" hint={`${settings.pomodoroShort} 分钟`}>
+          <span style={{ width: 132 }}>
+            <NeuSlider
+              min={5}
+              max={60}
+              step={5}
+              value={settings.pomodoroShort}
+              aria-label="小番茄时长"
+              onChange={(event) => onPatch({ pomodoroShort: Number(event.target.value) })}
+            />
+          </span>
+        </DrawerRow>
+        <DrawerRow title="大番茄" hint={`${settings.pomodoroLong} 分钟`}>
+          <span style={{ width: 132 }}>
+            <NeuSlider
+              min={5}
+              max={120}
+              step={5}
+              value={settings.pomodoroLong}
+              aria-label="大番茄时长"
+              onChange={(event) => onPatch({ pomodoroLong: Number(event.target.value) })}
+            />
+          </span>
+        </DrawerRow>
+      </div>
+
+      <hr className="nm-divider" />
+
+      <div className="drawer__group">
         <span className="nm-label">更新</span>
         <DrawerRow title="版本" hint={updateSummary(update, version)}>
           <div className="drawer__inline">

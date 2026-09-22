@@ -66,3 +66,16 @@ export function playCompleteSound(): void {
   playTone(ctx, { frequency: 880, startAt: now, duration: 0.18, gain: 0.13 })
   playTone(ctx, { frequency: 1318.51, startAt: now + 0.085, duration: 0.36, gain: 0.1 })
 }
+
+/**
+ * 番茄钟结束：三声下行再上行的钟声，比完成音更长一点，
+ * 不用看屏幕也知道「那段时间到了」。默认音色换成三角波，听着更像铃。
+ */
+export function playTimerSound(): void {
+  const ctx = ensureContext()
+  if (!ctx) return
+  const now = ctx.currentTime + 0.02
+  playTone(ctx, { frequency: 1174.66, startAt: now, duration: 0.42, gain: 0.1, type: 'triangle' })
+  playTone(ctx, { frequency: 880, startAt: now + 0.16, duration: 0.46, gain: 0.1, type: 'triangle' })
+  playTone(ctx, { frequency: 587.33, startAt: now + 0.32, duration: 0.8, gain: 0.12, type: 'triangle' })
+}
