@@ -105,6 +105,21 @@ export function SettingsDrawer({
 
       <div className="drawer__group">
         <span className="nm-label">质感</span>
+        <DrawerRow
+          title="背景透明度"
+          hint={`${Math.round(settings.bgTransparency * 100)}% · 只影响面板底色`}
+        >
+          <span style={{ width: 132 }}>
+            <NeuSlider
+              min={0}
+              max={85}
+              step={1}
+              value={Math.round(settings.bgTransparency * 100)}
+              aria-label="背景透明度"
+              onChange={(event) => onPatch({ bgTransparency: Number(event.target.value) / 100 })}
+            />
+          </span>
+        </DrawerRow>
         <DrawerRow title="颗粒质感" hint={formatPercent(settings.grain / 0.9)}>
           <span style={{ width: 132 }}>
             <NeuSlider

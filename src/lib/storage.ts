@@ -26,6 +26,7 @@ const MAX_ARCHIVED = 300
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'light',
   accent: 'sky',
+  bgTransparency: 0.58,
   grain: 0.5,
   frost: 62,
   snapToGrid: false,
@@ -140,6 +141,7 @@ export function parseState(raw: unknown): BoardState | null {
     settings: {
       theme: readTheme(settingsRaw.theme),
       accent: readTone(settingsRaw.accent, DEFAULT_SETTINGS.accent),
+      bgTransparency: clampNumber(settingsRaw.bgTransparency, 0, 0.85, DEFAULT_SETTINGS.bgTransparency),
       grain: clampNumber(settingsRaw.grain, 0, 0.9, DEFAULT_SETTINGS.grain),
       frost: clampNumber(settingsRaw.frost, 0, 100, DEFAULT_SETTINGS.frost),
       snapToGrid: settingsRaw.snapToGrid === true,

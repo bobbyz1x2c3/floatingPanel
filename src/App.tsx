@@ -267,11 +267,18 @@ export function App() {
     const root = document.documentElement
     root.dataset.theme = resolvedTheme
     root.dataset.accent = settings.accent
+    /*
+      背景透明度：换算成玻璃填充的 alpha，只动 --glass-fill*（面板底色），
+      卡片的 --glass-fill-card* 不动，所以文字始终看得清。
+    */
+    const fill = (1 - settings.bgTransparency).toFixed(3)
+    root.style.setProperty('--glass-fill', fill)
+    root.style.setProperty('--glass-fill-desktop', fill)
     root.style.setProperty('--nm-grain', String(settings.grain))
     root.style.setProperty('--glass-blur', `${(6 + settings.frost * 0.38).toFixed(1)}px`)
     root.style.setProperty('--glass-blur-soft', `${(4 + settings.frost * 0.18).toFixed(1)}px`)
     document.body.classList.toggle('is-desktop', isDesktop)
-  }, [resolvedTheme, settings.accent, settings.grain, settings.frost])
+  }, [resolvedTheme, settings.accent, settings.bgTransparency, settings.grain, settings.frost])
 
   useEffect(() => {
     if (!isDesktop) return

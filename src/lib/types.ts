@@ -38,6 +38,8 @@ export interface ArchivedCard extends CardData {
 export interface Settings {
   theme: ThemeMode
   accent: CardTone
+  /** 面板背景的透明度 0~0.85（0 = 完全不透明，越大越透）。只影响玻璃底，卡片和文字不受影响。 */
+  bgTransparency: number
   grain: number
   frost: number
   snapToGrid: boolean
