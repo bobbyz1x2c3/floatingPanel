@@ -165,35 +165,54 @@ export function App() {
   const stateRef = useRef(state)
   stateRef.current = state
 
+  const measureBoard = useCallback(() => {
+    const element = boardRef.current
+    if (!element) return
+    const viewport = measureBoardViewport(element)
+    if (!viewport) return
+    const next = zoneSizeFor(viewport.width, viewport.height)
+    const previous = zoneRef.current
+    const unchanged = previous.width === next.width && previous.height === next.height
+    if (unchanged) {
+      zoneReady.current = true
+      return
+    }
+    zoneRef.current = next
+    if (!zoneReady.current) {
+      zoneReady.current = true
+      setZone(next)
+      return
+    }
+    dispatch({ type: 'rezone', from: previous, to: next })
+    setZone(next)
+  }, [])
+
   const { cards, archived, settings } = state
   const settingsRef = useRef(settings)
   settingsRef.current = settings
 
-  // 四象限跟着窗口走：每格恒等于可视区的一半（低于最小值时才开始滚动）。
+  // Board 自身观察尺寸变化；窗口 resize 走全局兜底，专注模式退出重挂后也不会丢更新。
   useLayoutEffect(() => {
     const element = boardRef.current
     if (!element) return
-    const measure = () => {
-      const viewport = measureBoardViewport(element)
-      if (!viewport) return
-      const next = zoneSizeFor(viewport.width, viewport.height)
-      const previous = zoneRef.current
-      const unchanged = previous.width === next.width && previous.height === next.height
-      if (!zoneReady.current) {
-        zoneReady.current = true
-        if (!unchanged) setZone(next)
-        return
-      }
-      if (unchanged) return
-      // 象限变了，卡片按“原本在自己那一格里的相对位置”跟着挪，而不是钉死在绝对坐标上。
-      dispatch({ type: 'rezone', from: previous, to: next })
-      setZone(next)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
+    measureBoard()
+    const observer = new ResizeObserver(measureBoard)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [measureBoard])
+
+  useEffect(() => {
+    let resizeFrame = 0
+    const measureOnWindowResize = () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+      resizeFrame = window.requestAnimationFrame(measureBoard)
+    }
+    window.addEventListener('resize', measureOnWindowResize)
+    return () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+      window.removeEventListener('resize', measureOnWindowResize)
+    }
+  }, [measureBoard])
 
   const notify = useCallback((message: string) => {
     setToast(message)
