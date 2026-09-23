@@ -35,6 +35,7 @@ export type BoardAction =
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'arrange'; zone: ZoneSize }
   | { type: 'rezone'; from: ZoneSize; to: ZoneSize }
+  | { type: 'restoreLayout'; cards: Array<Pick<CardData, 'id' | 'x' | 'y' | 'width' | 'height' | 'quadrant' | 'tone'>> }
   | { type: 'clear' }
   | { type: 'restoreExamples'; zone: ZoneSize }
   | { type: 'archive'; id: string }
@@ -432,6 +433,17 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
 
     case 'rezone':
       return { ...state, cards: rezoneCards(state.cards, action.from, action.to) }
+
+    case 'restoreLayout': {
+      const layout = new Map(action.cards.map((card) => [card.id, card]))
+      return {
+        ...state,
+        cards: state.cards.map((card) => {
+          const saved = layout.get(card.id)
+          return saved ? { ...card, ...saved, updatedAt: card.updatedAt } : card
+        }),
+      }
+    }
 
     case 'clear':
       return { ...state, cards: [], activeId: null }

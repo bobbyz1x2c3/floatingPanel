@@ -81,14 +81,18 @@ function measureBoardViewport(element: HTMLElement) {
   const style = window.getComputedStyle(element)
   const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+  const width = element.clientWidth - padX
+  const height = element.clientHeight - padY
+  // Board 刚从专注模式挂回来时，布局可能还没稳定；无效测量不能写进 zone。
+  if (!Number.isFinite(width) || !Number.isFinite(height) || (width <= 0 && height <= 0)) return null
   /*
     clientWidth/clientHeight 已经把滚动条扣掉了，这里是最准的可视区。
     之所以不会抖：.board 上挂着 scrollbar-gutter: stable，纵向滚动条槽常驻，
     它的出现/消失不再改变这里量到的尺寸，也就不会再反过来触发象限重算。
   */
   return {
-    width: element.clientWidth - padX,
-    height: element.clientHeight - padY,
+    width,
+    height,
   }
 }
 
@@ -132,6 +136,7 @@ export function App() {
   const focusCurrentRef = useRef(focusCurrentId)
   focusCurrentRef.current = focusCurrentId
   const focusWindowSnapshot = useRef<FocusWindowSnapshot | null>(null)
+  const focusLayoutSnapshot = useRef<Array<Pick<CardData, 'id' | 'x' | 'y' | 'width' | 'height' | 'quadrant' | 'tone'>>>([])
   const focusPhaseTimer = useRef<number | null>(null)
   const focusTransitionTimer = useRef<number | null>(null)
   const focusHideTimer = useRef<number | null>(null)
@@ -170,6 +175,7 @@ export function App() {
     if (!element) return
     const measure = () => {
       const viewport = measureBoardViewport(element)
+      if (!viewport) return
       const next = zoneSizeFor(viewport.width, viewport.height)
       const previous = zoneRef.current
       const unchanged = previous.width === next.width && previous.height === next.height
@@ -539,6 +545,15 @@ export function App() {
     setFocusBarHidden(false)
     setSettingsOpen(false)
     setArchiveOpen(false)
+    focusLayoutSnapshot.current = stateRef.current.cards.map((card) => ({
+      id: card.id,
+      x: card.x,
+      y: card.y,
+      width: card.width,
+      height: card.height,
+      quadrant: card.quadrant,
+      tone: card.tone,
+    }))
     const size = focusStackSize(target)
     focusWindowSnapshot.current = await enterFocusWindow(size.width, size.height)
     setFocusPhase('entering')
@@ -652,13 +667,18 @@ export function App() {
       focusPhaseTimer.current = window.setTimeout(() => setFocusPhase('active'), 780)
     } else if (focusPhase === 'exiting') {
       focusPhaseTimer.current = window.setTimeout(() => {
-        void restoreFocusWindow(focusWindowSnapshot.current)
-        focusWindowSnapshot.current = null
-        setFocusPhase('idle')
-        setFocusCurrentId(null)
-        focusCurrentRef.current = null
-        setFocusTransition(null)
-        setFocusBarHidden(false)
+        void (async () => {
+          await restoreFocusWindow(focusWindowSnapshot.current)
+          dispatch({ type: 'restoreLayout', cards: focusLayoutSnapshot.current })
+          focusWindowSnapshot.current = null
+          focusLayoutSnapshot.current = []
+          zoneReady.current = false
+          setFocusPhase('idle')
+          setFocusCurrentId(null)
+          focusCurrentRef.current = null
+          setFocusTransition(null)
+          setFocusBarHidden(false)
+        })()
       }, 520)
     }
     return () => {

@@ -49,6 +49,7 @@
 .card.is-focus-card {
   left: 50%;
   top: 50%;
+  /* 专注态共享当前卡片尺寸；退出时回到每张卡自己的尺寸。 */
   min-width: 0;
   min-height: 0;
   translate: calc(-50% + var(--focus-x, 0px)) calc(-50% + var(--focus-y, 0px));
@@ -56,6 +57,10 @@
     translate 440ms var(--nm-ease-out), opacity 300ms var(--nm-ease-out),
     filter 300ms var(--nm-ease-out), box-shadow 300ms var(--nm-ease-out);
   will-change: translate, opacity, filter;
+}
+
+.card.is-focus-restoring {
+  transition-duration: 520ms;
 }
 
 .card.is-focus-stack {

@@ -68,6 +68,10 @@ export interface CardViewProps {
   focusOffsetY?: number
   focusTransition?: FocusCardTransition
   focusSizeChange?: boolean
+  /** 专注模式：临时展示尺寸；退出时传回每张卡自己的尺寸。 */
+  displayWidth?: number
+  displayHeight?: number
+  focusExiting?: boolean
   /** 专注模式：显示在这张卡片文本框背景里的倒计时。 */
   backgroundClock?: string | null
   /** 专注模式：把音频响应频谱铺在文本框背景里。 */
@@ -130,6 +134,9 @@ export function CardView({
   focusOffsetY = 0,
   focusTransition = null,
   focusSizeChange = false,
+  displayWidth,
+  displayHeight,
+  focusExiting = false,
   backgroundClock = null,
   audioBackground = false,
 }: CardViewProps) {
@@ -397,13 +404,14 @@ export function CardView({
     active && 'is-front',
     gesture === 'drag' && 'is-dragging',
     gesture === 'resize' && 'is-resizing',
-    card.collapsed && !focusMode && 'is-collapsed',
+    card.collapsed && (!focusMode || focusExiting) && 'is-collapsed',
     dimmed && 'is-dimmed',
     matched && 'is-match',
     timing && 'is-timing',
     focusMode && 'is-focus-card',
     focusMode && !focusCurrent && 'is-focus-stack',
     focusCurrent && 'is-focus-current',
+    focusExiting && 'is-focus-restoring',
     focusTransition && `is-focus-${focusTransition}`,
     focusSizeChange && 'is-focus-size',
     archiving && 'is-archiving',
@@ -429,9 +437,9 @@ export function CardView({
       style={{
         left: focusMode ? '50%' : card.x,
         top: focusMode ? '50%' : card.y,
-        width: card.width,
+        width: displayWidth ?? card.width,
         // 显式给高度（收起时是标题栏那一档），这样收起 / 展开才有得过渡。
-        height: focusMode || !card.collapsed ? card.height : COLLAPSED_HEIGHT,
+        height: displayHeight ?? (focusMode || !card.collapsed ? card.height : COLLAPSED_HEIGHT),
         zIndex: focusMode ? (focusCurrent ? 2000 : 1000 - focusDepth) : card.z,
         ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
         ['--focus-x']: `${focusOffsetX}px`,

@@ -85,6 +85,10 @@ export function FocusView({
 }: FocusViewProps) {
   const ordered = focusOrderedCards(cards)
   const currentIndex = Math.max(0, ordered.findIndex((card) => card.id === currentId))
+  const currentCard = ordered[currentIndex]
+  const sharedWidth = currentCard?.width ?? 0
+  const sharedHeight = currentCard?.height ?? 0
+  const exiting = phase === 'exiting'
 
   return (
     <div className="focus-view">
@@ -133,6 +137,9 @@ export function FocusView({
               focusOffsetY={offset.y}
               focusTransition={transitionClass}
               focusSizeChange={Boolean(transition?.sizeChange && isCurrent)}
+              displayWidth={exiting ? card.width : sharedWidth}
+              displayHeight={exiting ? (card.collapsed ? 58 : card.height) : sharedHeight}
+              focusExiting={exiting}
               backgroundClock={timerCardId === card.id ? remainingLabel : null}
               audioBackground={audioReactive && isCurrent}
             />
