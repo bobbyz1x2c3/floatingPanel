@@ -11,6 +11,7 @@ import { formatDateTime, formatFileSize, formatStamp } from '../lib/format'
 import { caretIndexFromPoint, findLinkAt, listLinks } from '../lib/links'
 import { openModifier, openTarget } from '../lib/platform'
 import { snapValue } from '../lib/store'
+import type { FocusCardTransition } from '../lib/focus'
 import {
   CARD_MAX_HEIGHT,
   CARD_MAX_WIDTH,
@@ -20,6 +21,7 @@ import {
   quadrantFromPoint,
 } from '../lib/types'
 import type { Attachment, CardData, ZoneSize } from '../lib/types'
+import { Spectrum } from './Spectrum'
 import { NeuButton } from './controls'
 import {
   IconCheck,
@@ -58,6 +60,18 @@ export interface CardViewProps {
   entering?: boolean
   /** 这张卡片上正在跑番茄钟：高亮一下。 */
   timing?: boolean
+  /** 专注模式：卡片只负责展示和编辑内容，不再拖动 / 缩放。 */
+  focusMode?: boolean
+  focusCurrent?: boolean
+  focusDepth?: number
+  focusOffsetX?: number
+  focusOffsetY?: number
+  focusTransition?: FocusCardTransition
+  focusSizeChange?: boolean
+  /** 专注模式：显示在这张卡片文本框背景里的倒计时。 */
+  backgroundClock?: string | null
+  /** 专注模式：把音频响应频谱铺在文本框背景里。 */
+  audioBackground?: boolean
 }
 
 interface DragOrigin {
@@ -109,6 +123,15 @@ export function CardView({
   isNew = false,
   entering = false,
   timing = false,
+  focusMode = false,
+  focusCurrent = false,
+  focusDepth = 0,
+  focusOffsetX = 0,
+  focusOffsetY = 0,
+  focusTransition = null,
+  focusSizeChange = false,
+  backgroundClock = null,
+  audioBackground = false,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
   const edgeRef = useRef<ResizeEdge | null>(null)
@@ -248,6 +271,7 @@ export function CardView({
   }
 
   const handleHeadPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (focusMode) return
     const target = event.target as HTMLElement
     if (target.closest('button')) return
     const field = target.closest('input')
@@ -267,6 +291,7 @@ export function CardView({
   }
 
   const handleResizePointerDown = (event: ReactPointerEvent<HTMLSpanElement>, edge: ResizeEdge) => {
+    if (focusMode) return
     // 页面上如果已经有文本选区，不拦掉默认行为的话浏览器会开始一次原生拖放，
     // 指针序列会被 dragstart 打断，缩放就只走了一步。
     event.preventDefault()
@@ -372,10 +397,15 @@ export function CardView({
     active && 'is-front',
     gesture === 'drag' && 'is-dragging',
     gesture === 'resize' && 'is-resizing',
-    card.collapsed && 'is-collapsed',
+    card.collapsed && !focusMode && 'is-collapsed',
     dimmed && 'is-dimmed',
     matched && 'is-match',
     timing && 'is-timing',
+    focusMode && 'is-focus-card',
+    focusMode && !focusCurrent && 'is-focus-stack',
+    focusCurrent && 'is-focus-current',
+    focusTransition && `is-focus-${focusTransition}`,
+    focusSizeChange && 'is-focus-size',
     archiving && 'is-archiving',
     removing && 'is-removing',
     toggling && 'is-toggling',
@@ -394,16 +424,26 @@ export function CardView({
       data-tone={card.tone}
       data-card-id={card.id}
       data-zone={card.quadrant}
+      data-focus-current={focusCurrent || undefined}
+      data-focus-depth={focusMode ? focusDepth : undefined}
       style={{
-        left: card.x,
-        top: card.y,
+        left: focusMode ? '50%' : card.x,
+        top: focusMode ? '50%' : card.y,
         width: card.width,
         // 显式给高度（收起时是标题栏那一档），这样收起 / 展开才有得过渡。
-        height: card.collapsed ? COLLAPSED_HEIGHT : card.height,
-        zIndex: card.z,
+        height: focusMode || !card.collapsed ? card.height : COLLAPSED_HEIGHT,
+        zIndex: focusMode ? (focusCurrent ? 2000 : 1000 - focusDepth) : card.z,
         ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
+        ['--focus-x']: `${focusOffsetX}px`,
+        ['--focus-y']: `${focusOffsetY}px`,
       } as CSSProperties}
-      onPointerDown={onBringToFront}
+      onPointerDown={
+        focusMode
+          ? () => {
+              if (!focusCurrent) onBringToFront()
+            }
+          : onBringToFront
+      }
       onPaste={handlePaste}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -455,16 +495,26 @@ export function CardView({
       </div>
 
       <div className="card__body">
-        <textarea
-          className="card__text"
-          value={card.body}
-          aria-label="卡片内容"
-          placeholder="写点什么…图片可以直接粘贴进来"
-          spellCheck={false}
-          onChange={(event) => onChange({ body: event.target.value })}
-          onClick={handleTextClick}
-          onPointerDown={onBringToFront}
-        />
+        <div className={`card__text-shell${focusMode ? ' is-focus' : ''}`}>
+          {focusMode && (audioBackground || backgroundClock) ? (
+            <div className="card__text-backdrop" aria-hidden="true">
+              {audioBackground ? <Spectrum variant="card" label="专注音频" /> : null}
+              {backgroundClock ? (
+                <span className="card__text-clock">{backgroundClock}</span>
+              ) : null}
+            </div>
+          ) : null}
+          <textarea
+            className="card__text"
+            value={card.body}
+            aria-label="卡片内容"
+            placeholder="写点什么…图片可以直接粘贴进来"
+            spellCheck={false}
+            onChange={(event) => onChange({ body: event.target.value })}
+            onClick={handleTextClick}
+            onPointerDown={focusMode ? undefined : onBringToFront}
+          />
+        </div>
 
         {links.length > 0 ? (
           <div className="card__links">
@@ -562,7 +612,7 @@ export function CardView({
         </span>
       ) : null}
 
-      {RESIZE_EDGES.map((edge) => (
+      {!focusMode ? RESIZE_EDGES.map((edge) => (
         <span
           key={edge}
           className={`rz rz--${edge}`}
@@ -571,7 +621,7 @@ export function CardView({
           title="拖动边缘调整大小"
           onPointerDown={(event) => handleResizePointerDown(event, edge)}
         />
-      ))}
+      )) : null}
     </article>
   )
 }

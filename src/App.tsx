@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { ArchiveDrawer } from './components/ArchiveDrawer'
 import { Board } from './components/Board'
+import { FocusView } from './components/FocusView'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { Spectrum } from './components/Spectrum'
 import { TomatoBar } from './components/TomatoBar'
@@ -32,9 +33,13 @@ import {
   watchNativeDrop,
 } from './lib/platform'
 import type { NativeDrop } from './lib/platform'
+import { enterFocusWindow, resizeFocusWindow, restoreFocusWindow } from './lib/platform'
+import type { FocusWindowSnapshot } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
 import { startAudio, stopAudio } from './lib/audio'
 import { formatClock } from './lib/pomodoro'
+import { focusCardIdInDirection, focusOrderedCards, focusStackSize } from './lib/focus'
+import type { FocusDirection, FocusPhase } from './lib/focus'
 import type { TrayTool } from './lib/types'
 import { IDLE_UPDATE, appVersion, checkUpdate as runUpdateCheck, installUpdate } from './lib/update'
 import type { UpdateState } from './lib/update'
@@ -55,6 +60,7 @@ import './styles/tokens.css'
 import './styles/neumorphism.css'
 import './styles/app.css'
 import './styles/pomodoro.css'
+import './styles/focus.css'
 
 const PERSIST_DELAY = 320
 const TICK_INTERVAL = 30000
@@ -113,6 +119,22 @@ export function App() {
   const [remaining, setRemaining] = useState(0)
   const pomodoroRef = useRef(pomodoro)
   pomodoroRef.current = pomodoro
+  const [focusPhase, setFocusPhase] = useState<FocusPhase>('idle')
+  const [focusCurrentId, setFocusCurrentId] = useState<string | null>(null)
+  const [focusTransition, setFocusTransition] = useState<{
+    previousId: string
+    direction: FocusDirection
+    sizeChange: boolean
+  } | null>(null)
+  const [focusBarHidden, setFocusBarHidden] = useState(false)
+  const focusPhaseRef = useRef(focusPhase)
+  focusPhaseRef.current = focusPhase
+  const focusCurrentRef = useRef(focusCurrentId)
+  focusCurrentRef.current = focusCurrentId
+  const focusWindowSnapshot = useRef<FocusWindowSnapshot | null>(null)
+  const focusPhaseTimer = useRef<number | null>(null)
+  const focusTransitionTimer = useRef<number | null>(null)
+  const focusHideTimer = useRef<number | null>(null)
   const [version, setVersion] = useState('—')
   const [update, setUpdate] = useState<UpdateState>(IDLE_UPDATE)
   const [now, setNow] = useState(() => Date.now())
@@ -308,6 +330,10 @@ export function App() {
       if (confirmTimer.current !== null) window.clearTimeout(confirmTimer.current)
       if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
       if (arrangeTimer.current !== null) window.clearTimeout(arrangeTimer.current)
+      if (focusPhaseTimer.current !== null) window.clearTimeout(focusPhaseTimer.current)
+      if (focusTransitionTimer.current !== null) window.clearTimeout(focusTransitionTimer.current)
+      if (focusHideTimer.current !== null) window.clearTimeout(focusHideTimer.current)
+      if (focusWindowSnapshot.current) void restoreFocusWindow(focusWindowSnapshot.current)
     }
   }, [])
 
@@ -465,6 +491,81 @@ export function App() {
     dispatch({ type: 'update', id, patch, touch })
   }, [])
 
+  const moveFocusTo = useCallback((id: string, direction: FocusDirection) => {
+    const ordered = focusOrderedCards(stateRef.current.cards)
+    const previousId = focusCurrentRef.current
+    const previous = ordered.find((card) => card.id === previousId)
+    const next = ordered.find((card) => card.id === id)
+    if (!next || next.id === previousId) return
+    const sizeChange = Boolean(previous && (previous.width !== next.width || previous.height !== next.height))
+    if (focusTransitionTimer.current !== null) window.clearTimeout(focusTransitionTimer.current)
+    setFocusTransition({ previousId: previousId ?? next.id, direction, sizeChange })
+    setFocusCurrentId(next.id)
+    focusCurrentRef.current = next.id
+      focusTransitionTimer.current = window.setTimeout(() => setFocusTransition(null), 560)
+  }, [])
+
+  const switchFocus = useCallback(
+    (direction: FocusDirection) => {
+      const nextId = focusCardIdInDirection(stateRef.current.cards, focusCurrentRef.current, direction)
+      if (nextId) moveFocusTo(nextId, direction)
+    },
+    [moveFocusTo],
+  )
+
+  const selectFocusCard = useCallback(
+    (id: string) => {
+      const ordered = focusOrderedCards(stateRef.current.cards)
+      const from = ordered.findIndex((card) => card.id === focusCurrentRef.current)
+      const to = ordered.findIndex((card) => card.id === id)
+      if (to < 0 || to === from) return
+      const direction: FocusDirection = to > from ? 'next' : 'previous'
+      moveFocusTo(id, direction)
+    },
+    [moveFocusTo],
+  )
+
+  const enterFocus = useCallback(async () => {
+    if (focusPhaseRef.current !== 'idle') return
+    const ordered = focusOrderedCards(stateRef.current.cards)
+    const target = ordered.find((card) => card.id === stateRef.current.activeId) ?? ordered[ordered.length - 1]
+    if (!target) {
+      notify('还没有卡片，先创建一张')
+      return
+    }
+    setFocusCurrentId(target.id)
+    focusCurrentRef.current = target.id
+    setFocusTransition(null)
+    setFocusBarHidden(false)
+    setSettingsOpen(false)
+    setArchiveOpen(false)
+    const size = focusStackSize(target)
+    focusWindowSnapshot.current = await enterFocusWindow(size.width, size.height)
+    setFocusPhase('entering')
+  }, [notify])
+
+  const exitFocus = useCallback(() => {
+    if (focusPhaseRef.current === 'idle' || focusPhaseRef.current === 'exiting') return
+    if (focusTransitionTimer.current !== null) window.clearTimeout(focusTransitionTimer.current)
+    setFocusTransition(null)
+    setFocusBarHidden(false)
+    setFocusPhase('exiting')
+  }, [])
+
+  const handleFocusCardRemoved = useCallback(
+    (id: string) => {
+      if (focusPhaseRef.current === 'idle' || focusCurrentRef.current !== id) return
+      const remaining = focusOrderedCards(stateRef.current.cards.filter((card) => card.id !== id))
+      const next = remaining[0]
+      if (!next) {
+        void exitFocus()
+        return
+      }
+      moveFocusTo(next.id, 'next')
+    },
+    [exitFocus, moveFocusTo],
+  )
+
   const arrange = useCallback(() => {
     // 先把「正在整理」挂上，卡片换位置就会走过渡而不是瞬移。
     setArranging(true)
@@ -498,6 +599,29 @@ export function App() {
     flashTimer.current = window.setTimeout(() => setFlash(null), FLASH_DURATION)
   }, [])
 
+  const completeCard = useCallback(
+    (id: string) => {
+      if (pomodoroRef.current?.cardId === id) {
+        pomodoroRef.current = null
+        setPomodoro(null)
+        setRemaining(0)
+      }
+      celebrate('已完成')
+    },
+    [celebrate],
+  )
+
+  const startPomodoro = useCallback(
+    (cardId: string, minutes: number, label: string) => {
+      const next = { cardId, endsAt: Date.now() + minutes * 60_000, label }
+      pomodoroRef.current = next
+      setPomodoro(next)
+      setRemaining(minutes * 60_000)
+      notify(`${label} · ${minutes} 分钟，开始计时`)
+    },
+    [notify],
+  )
+
   // 番茄钟倒计时：每秒刷数字，到点收尾。
   useEffect(() => {
     if (!pomodoro) return
@@ -510,6 +634,57 @@ export function App() {
     const timer = window.setInterval(tick, TIMER_TICK)
     return () => window.clearInterval(timer)
   }, [pomodoro, finishPomodoro])
+
+  // 专注模式跟随当前卡片收缩 / 放大桌面窗口。
+  const focusCurrentWidth = cards.find((card) => card.id === focusCurrentId)?.width
+  const focusCurrentHeight = cards.find((card) => card.id === focusCurrentId)?.height
+  useEffect(() => {
+    if (focusPhase === 'idle' || !focusCurrentId) return
+    const current = stateRef.current.cards.find((card) => card.id === focusCurrentId)
+    if (!current) return
+    const size = focusStackSize(current)
+    void resizeFocusWindow(size.width, size.height)
+  }, [focusPhase, focusCurrentId, focusCurrentWidth, focusCurrentHeight])
+
+  // 进入 / 退出各留一段动画时间；退出完成后再恢复普通窗口。
+  useEffect(() => {
+    if (focusPhase === 'entering') {
+      focusPhaseTimer.current = window.setTimeout(() => setFocusPhase('active'), 780)
+    } else if (focusPhase === 'exiting') {
+      focusPhaseTimer.current = window.setTimeout(() => {
+        void restoreFocusWindow(focusWindowSnapshot.current)
+        focusWindowSnapshot.current = null
+        setFocusPhase('idle')
+        setFocusCurrentId(null)
+        focusCurrentRef.current = null
+        setFocusTransition(null)
+        setFocusBarHidden(false)
+      }, 520)
+    }
+    return () => {
+      if (focusPhaseTimer.current !== null) window.clearTimeout(focusPhaseTimer.current)
+    }
+  }, [focusPhase])
+
+  // 失去窗口焦点两秒后收起专注面板，重新聚焦时再滑出来。
+  useEffect(() => {
+    if (focusPhase === 'idle') return
+    const hide = () => {
+      if (focusHideTimer.current !== null) window.clearTimeout(focusHideTimer.current)
+      focusHideTimer.current = window.setTimeout(() => setFocusBarHidden(true), 2000)
+    }
+    const show = () => {
+      if (focusHideTimer.current !== null) window.clearTimeout(focusHideTimer.current)
+      setFocusBarHidden(false)
+    }
+    window.addEventListener('blur', hide)
+    window.addEventListener('focus', show)
+    return () => {
+      if (focusHideTimer.current !== null) window.clearTimeout(focusHideTimer.current)
+      window.removeEventListener('blur', hide)
+      window.removeEventListener('focus', show)
+    }
+  }, [focusPhase])
 
   /**
    * 图片预览走独立窗口：主面板把这一张图写进 localStorage，
@@ -683,6 +858,19 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (focusPhaseRef.current !== 'idle') {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          exitFocus()
+        } else if (event.key === 'ArrowLeft') {
+          event.preventDefault()
+          switchFocus('previous')
+        } else if (event.key === 'ArrowRight') {
+          event.preventDefault()
+          switchFocus('next')
+        }
+        return
+      }
       if (event.key === 'Escape') {
         setSettingsOpen(false)
         setArchiveOpen(false)
@@ -705,21 +893,24 @@ export function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [addCard, toggleSettings])
+  }, [addCard, toggleSettings, exitFocus, switchFocus])
 
   return (
-    <div className={`shell${settings.audioReactive ? ' is-audio' : ''}`}>
+    <div
+      className={`shell${settings.audioReactive ? ' is-audio' : ''}${focusPhase !== 'idle' ? ' is-focus' : ''}${focusPhase === 'entering' ? ' is-focus-entering' : ''}${focusPhase === 'exiting' ? ' is-focus-exiting' : ''}`}
+    >
       <div className="panel">
         {/* 频谱垫在所有卡片下面，是面板背景的一部分，不是浮层。 */}
-        {settings.audioReactive ? <Spectrum label="系统音频" /> : null}
+        {settings.audioReactive && focusPhase === 'idle' ? <Spectrum label="系统音频" /> : null}
 
         {/* 番茄钟进行中：面板背景上一个很大的剩余时间。 */}
-        {pomodoro ? (
+        {pomodoro && focusPhase === 'idle' ? (
           <div className="countdown" aria-hidden="true">
             {formatClock(remaining)}
           </div>
         ) : null}
 
+        <div className={`topbar-shell${focusPhase !== 'idle' ? ' is-collapsed' : ''}`}>
         <TopBar
           isDesktop={isDesktop}
           platformLabel={platformLabel}
@@ -745,7 +936,9 @@ export function App() {
           onMaximize={() => void toggleMaximizeWindow()}
           onClose={() => void closeWindow()}
         />
+        </div>
 
+        {focusPhase === 'idle' ? (
         <Board
           cards={cards}
           activeId={state.activeId}
@@ -759,20 +952,15 @@ export function App() {
           onFocus={(id) => dispatch({ type: 'focus', id })}
           onRemove={(id) => {
             dispatch({ type: 'remove', id })
+            handleFocusCardRemoved(id)
             notify('已删除卡片')
           }}
           onArchive={(id) => {
             dispatch({ type: 'archive', id })
+            handleFocusCardRemoved(id)
             notify('已归档，可在「归档」里找到')
           }}
-          onComplete={(id) => {
-            if (pomodoroRef.current?.cardId === id) {
-              pomodoroRef.current = null
-              setPomodoro(null)
-              setRemaining(0)
-            }
-            celebrate('已完成')
-          }}
+          onComplete={completeCard}
           onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
           moving={arranging}
@@ -785,8 +973,46 @@ export function App() {
             setArchiveOpen(false)
           }}
         />
+        ) : (
+          <FocusView
+            cards={cards}
+            currentId={focusCurrentId}
+            transition={focusTransition}
+            phase={focusPhase}
+            now={now}
+            alwaysOnTop={settings.alwaysOnTop}
+            shortMinutes={settings.pomodoroShort}
+            longMinutes={settings.pomodoroLong}
+            timerCardId={pomodoro?.cardId ?? null}
+            remainingLabel={pomodoro ? formatClock(remaining) : null}
+            audioReactive={settings.audioReactive}
+            barHidden={focusBarHidden}
+            onSelectCard={selectFocusCard}
+            onUpdate={updateCard}
+            onRemove={(id) => {
+              dispatch({ type: 'remove', id })
+              handleFocusCardRemoved(id)
+              notify('已删除卡片')
+            }}
+            onArchive={(id) => {
+              dispatch({ type: 'archive', id })
+              handleFocusCardRemoved(id)
+              notify('已归档，可在「归档」里找到')
+            }}
+            onComplete={completeCard}
+            onPreview={(attachment) => void openPreview(attachment)}
+            onNotify={notify}
+            onToggleAlwaysOnTop={() => patchSettings({ alwaysOnTop: !settings.alwaysOnTop })}
+            onPrevious={() => switchFocus('previous')}
+            onNext={() => switchFocus('next')}
+            onStartPomodoro={(minutes, label) => {
+              if (focusCurrentRef.current) startPomodoro(focusCurrentRef.current, minutes, label)
+            }}
+            onExit={exitFocus}
+          />
+        )}
 
-        {archiveOpen ? (
+        {focusPhase === 'idle' && archiveOpen ? (
           <ArchiveDrawer
             archived={archived}
             now={now}
@@ -806,7 +1032,7 @@ export function App() {
           />
         ) : null}
 
-        {settingsOpen ? (
+        {focusPhase === 'idle' && settingsOpen ? (
           <SettingsDrawer
             settings={settings}
             isDesktop={isDesktop}
@@ -839,6 +1065,7 @@ export function App() {
           </div>
         ) : null}
 
+        {focusPhase === 'idle' ? (
         <TomatoBar
           shortMinutes={settings.pomodoroShort}
           longMinutes={settings.pomodoroLong}
@@ -852,15 +1079,11 @@ export function App() {
             setSettingsOpen(true)
             setArchiveOpen(false)
           }}
+          onEnterFocus={() => void enterFocus()}
           onHoverCard={setDropTargetId}
           onDropOnCard={(cardId, tomato) => {
             setDropTargetId(null)
-            setPomodoro({
-              cardId,
-              endsAt: Date.now() + tomato.minutes * 60_000,
-              label: tomato.label,
-            })
-            notify(`${tomato.label} · ${tomato.minutes} 分钟，开始计时`)
+            startPomodoro(cardId, tomato.minutes, tomato.label)
           }}
           onDropNothing={() => {
             setDropTargetId(null)
@@ -872,6 +1095,7 @@ export function App() {
             notify('已取消番茄钟')
           }}
         />
+        ) : null}
       </div>
     </div>
   )

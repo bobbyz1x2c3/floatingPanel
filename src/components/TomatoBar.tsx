@@ -5,6 +5,7 @@ import tomatoBig from '../../assets/tomato-big.png'
 import { TRAY_KIND_LABELS } from '../lib/types'
 import type { TrayTool } from '../lib/types'
 import { IconClose, IconPlus } from './icons'
+import { IconFocus } from './focusIcons'
 
 export interface TomatoDragPayload {
   minutes: number
@@ -23,18 +24,20 @@ export interface TomatoBarProps {
   onRunTool: (tool: TrayTool) => void
   onEditTools: () => void
   onCancel: () => void
+  onEnterFocus: () => void
   onHoverCard: (cardId: string | null) => void
   onDropOnCard: (cardId: string, tomato: TomatoDragPayload) => void
   onDropNothing: () => void
 }
 
 /** 面板里的圆形按钮：托盘的统一手感，图标是 emoji 或者图片。 */
-function TrayButton({
+export function TrayButton({
   label,
   onClick,
   children,
   tone,
   size = 'md',
+  active = false,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -44,6 +47,7 @@ function TrayButton({
   children: ReactNode
   tone?: 'tomato' | 'ghost'
   size?: 'md' | 'lg'
+  active?: boolean
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -51,7 +55,7 @@ function TrayButton({
   return (
     <button
       type="button"
-      className={`tray-btn${tone ? ` tray-btn--${tone}` : ''}${size === 'lg' ? ' is-lg' : ''}`}
+      className={`tray-btn${tone ? ` tray-btn--${tone}` : ''}${size === 'lg' ? ' is-lg' : ''}${active ? ' is-active' : ''}`}
       title={label}
       aria-label={label}
       onClick={onClick}
@@ -167,12 +171,12 @@ export function TomatoBar({
   onRunTool,
   onEditTools,
   onCancel,
+  onEnterFocus,
   onHoverCard,
   onDropOnCard,
   onDropNothing,
 }: TomatoBarProps) {
   const hasTools = showTools && tools.length > 0
-  const empty = !showPomodoro && !hasTools && !isRunning
 
   return (
     <div className={`tray tray--${align}`} role="group" aria-label="番茄钟与工具">
@@ -198,9 +202,13 @@ export function TomatoBar({
           />
         ) : null}
 
-        {showPomodoro && hasTools ? (
+        {showPomodoro && (hasTools || showTools) ? (
           <span className="tray__rule" aria-hidden="true" />
         ) : null}
+
+        <TrayButton label="进入专注模式" tone="ghost" onClick={onEnterFocus}>
+          <IconFocus size={18} />
+        </TrayButton>
 
         {hasTools
           ? tools.map((tool) => (
@@ -229,7 +237,6 @@ export function TomatoBar({
           </>
         ) : null}
 
-        {empty ? <span className="tray__empty">托盘里还没有东西，去设置里配一下</span> : null}
       </div>
     </div>
   )
