@@ -45,7 +45,7 @@ export interface CardViewProps {
   onBringToFront: () => void
   onRemove: () => void
   onArchive: () => void
-  onComplete: () => void
+  onComplete: (cardId: string) => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   /** 在列表里的序号：用来给入场动效排队，一叠卡片依次落下来。 */
@@ -315,7 +315,7 @@ export function CardView({
   const handleArchive = () => {
     if (archiving) return
     // 音效跟着点击走，不等归档动效播完。
-    onComplete()
+    onComplete(card.id)
     setArchiving(true)
     archiveTimer.current = window.setTimeout(() => onArchive(), ARCHIVE_ANIMATION)
   }

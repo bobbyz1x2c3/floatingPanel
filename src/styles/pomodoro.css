@@ -15,6 +15,7 @@
   bottom: 18px;
   z-index: 58;
   display: flex;
+  max-width: calc(100% - 36px);
   pointer-events: none;
 }
 
@@ -24,11 +25,15 @@
 }
 
 .tray--left {
-  left: 18px;
+  right: auto;
+  left: max(18px, env(safe-area-inset-left));
+  transform: none;
 }
 
 .tray--right {
-  right: 18px;
+  right: max(18px, env(safe-area-inset-right));
+  left: auto;
+  transform: none;
 }
 
 /* 开着频谱的时候把托盘抬起来，两者不打架 */
@@ -41,11 +46,18 @@
   这样背景是真的透得出来，靠 backdrop-filter 把它磨砂化。
 */
 .tray__inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   padding: 11px 16px;
   border-radius: var(--nm-r-pill);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   /* 比主面板再透一点（乘 0.82），浮在卡片上才像一块独立的玻璃 */
   background: rgb(var(--glass-rgb) / calc(var(--glass-fill) * 0.82));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
@@ -55,6 +67,10 @@
     inset 0 -1px 0 rgb(var(--glass-rgb) / 0.14);
   pointer-events: auto;
   animation: toast-in 260ms var(--nm-ease-out) both;
+}
+
+.tray__inner::-webkit-scrollbar {
+  display: none;
 }
 
 /* 玻璃里再来一层很淡的内描边，边界更清楚一点 */
@@ -74,6 +90,7 @@
 /* ---------- 圆形按钮 ---------- */
 
 .tray-btn {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 46px;

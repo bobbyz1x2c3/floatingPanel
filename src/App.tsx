@@ -765,7 +765,14 @@ export function App() {
             dispatch({ type: 'archive', id })
             notify('已归档，可在「归档」里找到')
           }}
-          onComplete={() => celebrate('已完成')}
+          onComplete={(id) => {
+            if (pomodoroRef.current?.cardId === id) {
+              pomodoroRef.current = null
+              setPomodoro(null)
+              setRemaining(0)
+            }
+            celebrate('已完成')
+          }}
           onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
           moving={arranging}

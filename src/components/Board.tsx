@@ -23,7 +23,7 @@ export interface BoardProps {
   onFocus: (id: string) => void
   onRemove: (id: string) => void
   onArchive: (id: string) => void
-  onComplete: () => void
+  onComplete: (cardId: string) => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   onBlurBoard: () => void
