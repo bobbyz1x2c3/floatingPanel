@@ -269,11 +269,11 @@ nemu board                      # 各象限分布 + 状态文件路径
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "notes": "这一版干了什么",
   "pub_date": "2026-09-23T00:00:00Z",
   "platforms": {
-    "windows-x86_64": { "signature": "……", "url": "……/NemuFloat_0.2.0_x64-setup.exe" }
+    "windows-x86_64": { "signature": "……", "url": "……/NemuFloat_0.3.0_x64-setup.exe" }
   }
 }
 ```

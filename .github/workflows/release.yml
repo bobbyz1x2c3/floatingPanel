@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 要发布的 tag（例如 v0.2.0）
+        description: 要发布的 tag（例如 v0.3.0）
         required: true
 
 permissions:

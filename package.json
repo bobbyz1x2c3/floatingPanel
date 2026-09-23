@@ -1,6 +1,6 @@
 {
   "name": "nemu-float",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Neumorphic floating card board for desktop, web and mobile",
   "type": "module",

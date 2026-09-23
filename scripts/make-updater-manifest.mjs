@@ -51,7 +51,7 @@ function fail(message) {
   process.exit(1)
 }
 
-/** `.sig` 本体是 base64，解开后能看到受签名保护的 `version:0.2.0` 注释。 */
+/** `.sig` 本体是 base64，解开后能看到受签名保护的 `version:0.3.0` 注释。 */
 function signedVersion(signatureBase64) {
   try {
     const text = Buffer.from(signatureBase64.trim(), 'base64').toString('utf8')
