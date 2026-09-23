@@ -144,6 +144,8 @@ export function CardView({
   const edgeRef = useRef<ResizeEdge | null>(null)
   const archiveTimer = useRef<number | null>(null)
   const movedRef = useRef(false)
+  const [focusDragOffset, setFocusDragOffset] = useState({ x: 0, y: 0 })
+  const focusDragOffsetRef = useRef({ x: 0, y: 0 })
   const pendingFocus = useRef<{ field: HTMLInputElement; clientX: number; clientY: number } | null>(
     null,
   )
@@ -185,9 +187,16 @@ export function CardView({
 
       if (gesture === 'drag') {
         const { onChange: change, snap: snapping, card: current, zone: area } = latest.current
+        const deltaXSnapped = snapValue(deltaX, snapping)
+        const deltaYSnapped = snapValue(deltaY, snapping)
         const x = Math.max(-600, snapValue(origin.startX + deltaX, snapping))
         const y = Math.max(-600, snapValue(origin.startY + deltaY, snapping))
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) movedRef.current = true
+        if (focusMode) {
+          focusDragOffsetRef.current = { x: deltaXSnapped, y: deltaYSnapped }
+          setFocusDragOffset(focusDragOffsetRef.current)
+          return
+        }
         const patch: Partial<CardData> = { x, y }
         const next = quadrantFromPoint(x + current.width / 2, y + current.height / 2, area)
         if (next !== current.quadrant) patch.quadrant = next
@@ -238,12 +247,23 @@ export function CardView({
     const finish = () => {
       const pending = pendingFocus.current
       pendingFocus.current = null
+      const origin = originRef.current
+      if (focusMode && gesture === 'drag' && movedRef.current && origin) {
+        const { onChange: change, snap: snapping } = latest.current
+        const offset = focusDragOffsetRef.current
+        change({
+          x: snapValue(origin.startX + offset.x, snapping),
+          y: snapValue(origin.startY + offset.y, snapping),
+        }, false)
+      }
       // 标题栏既是拖动手柄也是输入框：没拖动就当作一次普通的点击落光标。
       if (pending && !movedRef.current) {
         const index = caretIndexFromPoint(pending.field, pending.clientX, pending.clientY)
         pending.field.focus()
         if (index >= 0) pending.field.setSelectionRange(index, index)
       }
+      focusDragOffsetRef.current = { x: 0, y: 0 }
+      setFocusDragOffset(focusDragOffsetRef.current)
       originRef.current = null
       edgeRef.current = null
       setGesture('idle')
@@ -278,7 +298,7 @@ export function CardView({
   }
 
   const handleHeadPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (focusMode) return
+    if (focusMode && !focusCurrent) return
     const target = event.target as HTMLElement
     if (target.closest('button')) return
     const field = target.closest('input')
@@ -442,8 +462,8 @@ export function CardView({
         height: displayHeight ?? (focusMode || !card.collapsed ? card.height : COLLAPSED_HEIGHT),
         zIndex: focusMode ? (focusCurrent ? 2000 : 1000 - focusDepth) : card.z,
         ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
-        ['--focus-x']: `${focusOffsetX}px`,
-        ['--focus-y']: `${focusOffsetY}px`,
+        ['--focus-x']: `${focusOffsetX + focusDragOffset.x}px`,
+        ['--focus-y']: `${focusOffsetY + focusDragOffset.y}px`,
       } as CSSProperties}
       onPointerDown={
         focusMode

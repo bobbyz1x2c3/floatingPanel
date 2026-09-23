@@ -40,19 +40,19 @@
 
 html[data-theme='light'] {
   color-scheme: light;
-  --nm-bg: #e7eaf1;
-  --nm-bg-soft: #eef1f7;
-  --nm-bg-deep: #dde2ec;
+  --nm-bg: #faf8f0;
+  --nm-bg-soft: #f6f3ea;
+  --nm-bg-deep: #eee9dc;
   --nm-shade: #bfc5d4;
-  --nm-glow: #ffffff;
+  --nm-glow: #fffdf7;
   --nm-text: #454e63;
   --nm-text-strong: #1f2534;
   --nm-muted: #8a94ab;
   --nm-hair: rgba(101, 113, 140, 0.16);
   --nm-grid-dot: rgba(120, 132, 158, 0.26);
   --nm-window-shade: rgba(38, 47, 68, 0.28);
-  --page-bg: linear-gradient(155deg, #eaeef6 0%, #dde3ee 46%, #e6eaf3 100%);
-  --glass-rgb: 255 255 255;
+  --page-bg: #faf8f0;
+  --glass-rgb: 255 253 247;
   /* 面板本身就是一块玻璃：填充压到 0.5 左右，才看得出背后的东西。 */
   --glass-fill: 0.5;
   --glass-fill-card: 0.54;

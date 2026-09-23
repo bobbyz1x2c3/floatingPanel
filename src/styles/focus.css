@@ -4,6 +4,23 @@
   padding: 0;
 }
 
+.shell.is-focus::before {
+  display: none;
+}
+
+.shell.is-focus .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.shell.is-focus .panel::before {
+  display: none;
+}
+
 .topbar-shell {
   flex: 0 0 auto;
   max-height: 88px;
@@ -26,14 +43,18 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
 .focus-stage {
   position: relative;
   isolation: isolate;
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 var(--focus-card-height, 0px);
+  width: var(--focus-card-width, 100%);
+  height: var(--focus-card-height, 0px);
+  min-height: var(--focus-card-height, 0px);
   overflow: hidden;
 }
 
@@ -63,16 +84,20 @@
   transition-duration: 520ms;
 }
 
+.card.is-focus-card.is-dragging {
+  transition: none;
+}
+
 .card.is-focus-stack {
-  opacity: 0.2;
-  filter: saturate(0.62) brightness(0.84);
-  transform: scale(0.97);
+  opacity: 0.28;
+  filter: saturate(0.72) brightness(0.88);
+  transform: scale(1);
   pointer-events: auto;
 }
 
 .card.is-focus-stack:hover {
-  opacity: 0.4;
-  filter: saturate(0.8) brightness(0.94);
+  opacity: 0.46;
+  filter: saturate(0.84) brightness(0.96);
 }
 
 .card.is-focus-current,
@@ -283,14 +308,17 @@
 .focus-bar {
   display: flex;
   flex: 0 0 88px;
+  width: auto;
+  max-width: 100%;
   align-items: center;
   justify-content: center;
   min-height: 88px;
-  padding: 12px 18px;
+  padding: 12px 0;
   transition: transform 360ms var(--nm-ease-out), opacity 260ms var(--nm-ease-out);
 }
 
 .focus-bar__inner {
+  width: auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -339,7 +367,7 @@
 
 @media (max-width: 420px) {
   .focus-bar {
-    padding-inline: 10px;
+    padding-inline: 0;
   }
 
   .focus-bar__inner {

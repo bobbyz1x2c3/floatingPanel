@@ -1,9 +1,7 @@
 import tomatoSmall from '../../assets/tomato-small.png'
 import tomatoBig from '../../assets/tomato-big.png'
-import {
-  focusOrderedCards,
-  focusStackOffset,
-} from '../lib/focus'
+import type { CSSProperties } from 'react'
+import { FOCUS_WINDOW_PADDING_X, FOCUS_WINDOW_PADDING_Y, focusOrderedCards, focusStackOffset } from '../lib/focus'
 import type {
   FocusCardTransition,
   FocusDirection,
@@ -88,10 +86,19 @@ export function FocusView({
   const currentCard = ordered[currentIndex]
   const sharedWidth = currentCard?.width ?? 0
   const sharedHeight = currentCard?.height ?? 0
+  const stageWidth = sharedWidth + FOCUS_WINDOW_PADDING_X
   const exiting = phase === 'exiting'
+  const currentHeight = exiting ? (currentCard?.collapsed ? 58 : currentCard?.height ?? sharedHeight) : sharedHeight
+  const stageHeight = currentHeight + FOCUS_WINDOW_PADDING_Y
 
   return (
-    <div className="focus-view">
+    <div
+      className="focus-view"
+      style={{
+        '--focus-card-height': `${stageHeight}px`,
+        '--focus-card-width': `${stageWidth}px`,
+      } as CSSProperties}
+    >
       <div
         className={`focus-stage focus-stage--${phase}`}
         role="region"

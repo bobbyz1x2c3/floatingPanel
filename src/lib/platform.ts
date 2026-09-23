@@ -129,7 +129,16 @@ export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
   return run((win) => win.setAlwaysOnTop(value))
 }
 
+function resizeByDom(width: number, height: number): void {
+  try {
+    window.resizeTo(width, height)
+  } catch {
+    /* 浏览器主窗口可能禁止脚本调整尺寸 */
+  }
+}
+
 export interface FocusWindowSnapshot {
+  /** 逻辑像素，和 CSS / LogicalSize 对齐。 */
   width: number
   height: number
   maximized: boolean
@@ -144,16 +153,30 @@ export async function enterFocusWindow(
   height: number,
 ): Promise<FocusWindowSnapshot | null> {
   const win = await resolveWindow()
-  if (!win?.setSize || !win?.innerSize || !win?.setMinSize) return null
+  if (!win?.setSize || !win?.setMinSize) return null
   try {
     const dpi = await import('@tauri-apps/api/dpi')
-    const size = await win.innerSize()
-    const maximized = await win.isMaximized()
-    if (maximized && win.unmaximize) await win.unmaximize()
-    await win.setMinSize(new dpi.LogicalSize(width, height))
+    let snapshot: FocusWindowSnapshot | null = null
+    try {
+      const size = win.innerSize ? await win.innerSize() : null
+      const maximized = win.isMaximized ? await win.isMaximized() : false
+      const dpr = window.devicePixelRatio || 1
+      if (size) snapshot = { width: size.width / dpr, height: size.height / dpr, maximized }
+      if (maximized && win.unmaximize) await win.unmaximize()
+    } catch {
+      /* 尺寸快照失败也不能阻止专注窗口收缩 */
+    }
+    snapshot ??= {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      maximized: false,
+    }
+    await win.setMinSize(new dpi.LogicalSize(FOCUS_MIN_WIDTH, FOCUS_MIN_HEIGHT))
     await win.setSize(new dpi.LogicalSize(width, height))
-    return { width: size.width, height: size.height, maximized }
+    await win.setMinSize(new dpi.LogicalSize(width, height))
+    return snapshot
   } catch {
+    resizeByDom(width, height)
     return null
   }
 }
@@ -170,6 +193,7 @@ export async function resizeFocusWindow(width: number, height: number): Promise<
     await win.setMinSize(new dpi.LogicalSize(width, height))
   } catch {
     /* 浏览器或平台不支持时保持现状 */
+    resizeByDom(width, height)
   }
 }
 
@@ -180,10 +204,11 @@ export async function restoreFocusWindow(snapshot: FocusWindowSnapshot | null): 
   try {
     const dpi = await import('@tauri-apps/api/dpi')
     await win.setMinSize(new dpi.LogicalSize(520, 420))
-    await win.setSize(new dpi.PhysicalSize(snapshot.width, snapshot.height))
+    await win.setSize(new dpi.LogicalSize(snapshot.width, snapshot.height))
     if (snapshot.maximized && win.maximize) await win.maximize()
   } catch {
     /* 恢复失败不影响专注模式退出 */
+    resizeByDom(snapshot.width, snapshot.height)
   }
 }
 

@@ -495,6 +495,20 @@ export function App() {
 
   const updateCard = useCallback((id: string, patch: Partial<CardData>, touch?: boolean) => {
     dispatch({ type: 'update', id, patch, touch })
+    if (focusPhaseRef.current !== 'idle') {
+      focusLayoutSnapshot.current = focusLayoutSnapshot.current.map((saved) => {
+        if (saved.id !== id) return saved
+        return {
+          ...saved,
+          x: patch.x ?? saved.x,
+          y: patch.y ?? saved.y,
+          width: patch.width ?? saved.width,
+          height: patch.height ?? saved.height,
+          quadrant: patch.quadrant ?? saved.quadrant,
+          tone: patch.tone ?? saved.tone,
+        }
+      })
+    }
   }, [])
 
   const moveFocusTo = useCallback((id: string, direction: FocusDirection) => {

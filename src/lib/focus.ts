@@ -3,7 +3,8 @@ import type { CardData } from './types'
 /** 专注模式底部控制条占掉的高度：窗口高度 = 当前卡片高度 + 这个值。 */
 export const FOCUS_BAR_HEIGHT = 88
 /** 当前卡片左右各留 12px，叠在后面的卡片可以从边缘露出来。 */
-export const FOCUS_WINDOW_PADDING_X = 24
+export const FOCUS_WINDOW_PADDING_X = 56
+export const FOCUS_WINDOW_PADDING_Y = 24
 /** 桌面端窗口在专注模式下允许收缩到的最小逻辑尺寸。 */
 export const FOCUS_MIN_WIDTH = 250
 export const FOCUS_MIN_HEIGHT = 168
@@ -38,7 +39,7 @@ export function focusCardIdInDirection(
 export function focusStackSize(card: CardData): { width: number; height: number } {
   return {
     width: Math.ceil(card.width + FOCUS_WINDOW_PADDING_X),
-    height: Math.ceil(card.height + FOCUS_BAR_HEIGHT),
+    height: Math.ceil(card.height + FOCUS_BAR_HEIGHT + FOCUS_WINDOW_PADDING_Y),
   }
 }
 
@@ -50,10 +51,12 @@ export function focusStackOffset(
 ): { x: number; y: number } {
   if (count <= 1 || cardIndex === currentIndex) return { x: 0, y: 0 }
   const forward = (cardIndex - currentIndex + count) % count
-  const distance = Math.min(forward <= count / 2 ? forward : count - forward, 3)
-  const side = forward <= count / 2 ? 1 : -1
+  const backward = (currentIndex - cardIndex + count) % count
+  const lane = forward <= backward ? forward : -backward
+  const distance = Math.min(Math.abs(lane), 3)
+  const side = lane >= 0 ? 1 : -1
   return {
-    x: side * distance * 7,
-    y: side * distance * 6,
+    x: side * (10 + distance * 6),
+    y: lane * 5,
   }
 }
