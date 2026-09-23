@@ -43,20 +43,17 @@ export function focusStackSize(card: CardData): { width: number; height: number 
   }
 }
 
-/** 非当前卡片只偏移一小段，既看得出是一叠，也不会互相完全盖死。 */
+/** 非当前卡片统一向当前卡片右下偏移，当前卡片本身保持原位。 */
 export function focusStackOffset(
   cardIndex: number,
   currentIndex: number,
   count: number,
 ): { x: number; y: number } {
   if (count <= 1 || cardIndex === currentIndex) return { x: 0, y: 0 }
-  const forward = (cardIndex - currentIndex + count) % count
-  const backward = (currentIndex - cardIndex + count) % count
-  const lane = forward <= backward ? forward : -backward
-  const distance = Math.min(Math.abs(lane), 3)
-  const side = lane >= 0 ? 1 : -1
+  const relativeDepth = (cardIndex - currentIndex + count) % count
+  const depth = Math.min(relativeDepth, 3)
   return {
-    x: side * (10 + distance * 6),
-    y: lane * 5,
+    x: depth * 7,
+    y: depth * 4,
   }
 }

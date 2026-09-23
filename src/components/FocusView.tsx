@@ -110,11 +110,7 @@ export function FocusView({
             ordered.findIndex((item) => item.id === card.id),
           )
           const count = ordered.length
-          const forward = (orderedIndex - currentIndex + count) % count
-          const distance = Math.min(
-            forward <= count / 2 ? forward : count - forward,
-            3,
-          )
+          const distance = Math.min((orderedIndex - currentIndex + count) % count, 3)
           const offset = focusStackOffset(orderedIndex, currentIndex, count)
           const isCurrent = card.id === currentId
           const transitionClass = transitionFor(card.id, currentId, transition)
