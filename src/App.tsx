@@ -118,6 +118,7 @@ export function App() {
   const [toastLeaving, setToastLeaving] = useState(false)
   const [flash, setFlash] = useState<{ id: number; text: string } | null>(null)
   const [arranging, setArranging] = useState(false)
+  const [batchToggling, setBatchToggling] = useState(false)
   /** 正在跑的番茄钟（同一时间只允许一个）。 */
   const [pomodoro, setPomodoro] = useState<{ cardId: string; endsAt: number; label: string } | null>(null)
   const [remaining, setRemaining] = useState(0)
@@ -149,6 +150,7 @@ export function App() {
   const flashTimer = useRef<number | null>(null)
   const arrangeTimer = useRef<number | null>(null)
   const confirmTimer = useRef<number | null>(null)
+  const batchToggleTimer = useRef<number | null>(null)
   const storageWarned = useRef(false)
   /** 状态文件：最近一次同步过的内容和修改时间，用来和 CLI 对表。 */
   const fileStamp = useRef(0)
@@ -355,6 +357,7 @@ export function App() {
       if (confirmTimer.current !== null) window.clearTimeout(confirmTimer.current)
       if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
       if (arrangeTimer.current !== null) window.clearTimeout(arrangeTimer.current)
+      if (batchToggleTimer.current !== null) window.clearTimeout(batchToggleTimer.current)
       if (focusPhaseTimer.current !== null) window.clearTimeout(focusPhaseTimer.current)
       if (focusTransitionTimer.current !== null) window.clearTimeout(focusTransitionTimer.current)
       if (focusHideTimer.current !== null) window.clearTimeout(focusHideTimer.current)
@@ -795,6 +798,15 @@ export function App() {
     [cards],
   )
 
+  const setAllCollapsed = useCallback((value: boolean) => {
+    dispatch({ type: 'collapseAll', value })
+    setBatchToggling(true)
+    if (batchToggleTimer.current !== null) window.clearTimeout(batchToggleTimer.current)
+    batchToggleTimer.current = window.setTimeout(() => setBatchToggling(false), 280)
+  }, [])
+
+  const toggleCollapseAll = useCallback(() => setAllCollapsed(!allCollapsed), [allCollapsed, setAllCollapsed])
+
   const matchCount = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return cards.length
@@ -856,13 +868,13 @@ export function App() {
           addCard()
           break
         case 'collapse-all':
-          dispatch({ type: 'collapseAll', value: !allCollapsed })
+          setAllCollapsed(!allCollapsed)
           break
         default:
           notify(`不认识的托盘动作：${tool.value}`)
       }
     },
-    [addCard, allCollapsed, arrange, notify],
+    [addCard, allCollapsed, arrange, notify, setAllCollapsed],
   )
 
   const toggleSettings = useCallback(() => {
@@ -982,7 +994,7 @@ export function App() {
           archiveOpen={archiveOpen}
           hasUpdate={update.status === 'available'}
           onArrange={arrange}
-          onToggleCollapseAll={() => dispatch({ type: 'collapseAll', value: !allCollapsed })}
+          onToggleCollapseAll={toggleCollapseAll}
           onCycleTheme={cycleTheme}
           onToggleArchive={toggleArchive}
           onToggleSettings={toggleSettings}
@@ -1019,6 +1031,7 @@ export function App() {
           onPreview={(attachment) => void openPreview(attachment)}
           onNotify={notify}
           moving={arranging}
+          toggling={batchToggling}
           timingId={pomodoro?.cardId ?? null}
           zone={zone}
           boardRef={boardRef}
@@ -1093,7 +1106,7 @@ export function App() {
             isDesktop={isDesktop}
             onPatch={patchSettings}
             onArrange={arrange}
-            onCollapseAll={() => dispatch({ type: 'collapseAll', value: true })}
+            onCollapseAll={() => setAllCollapsed(true)}
             onClear={requestClear}
             onRestore={() => {
               dispatch({ type: 'restoreExamples', zone: zoneRef.current })

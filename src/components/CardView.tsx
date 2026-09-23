@@ -58,6 +58,7 @@ export interface CardViewProps {
   isNew?: boolean
   /** 首屏那批：播依次落下的入场动效。 */
   entering?: boolean
+  batchToggling?: boolean
   /** 这张卡片上正在跑番茄钟：高亮一下。 */
   timing?: boolean
   /** 专注模式：卡片只负责展示和编辑内容，不再拖动 / 缩放。 */
@@ -126,6 +127,7 @@ export function CardView({
   moving = false,
   isNew = false,
   entering = false,
+  batchToggling = false,
   timing = false,
   focusMode = false,
   focusCurrent = false,
@@ -488,6 +490,7 @@ export function CardView({
     moving && 'is-moving',
     isNew && 'is-new',
     entering && 'is-entering',
+    (toggling || batchToggling) && 'is-toggling',
     gesture === 'drag' && snap && 'is-snapping',
     (dropActive || dropTarget) && 'is-drop',
   ]

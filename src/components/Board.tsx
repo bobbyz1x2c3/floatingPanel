@@ -29,6 +29,7 @@ export interface BoardProps {
   onBlurBoard: () => void
   /** 正在「整理」：卡片换位置时走过渡。 */
   moving?: boolean
+  toggling?: boolean
   /** 正在跑番茄钟的卡片 id。 */
   timingId?: string | null
 }
@@ -64,6 +65,7 @@ export function Board({
   onNotify,
   onBlurBoard,
   moving = false,
+  toggling = false,
   timingId = null,
 }: BoardProps) {
   // 画布至少铺满窗口（正好两格宽、两格高），卡片堆到外面时再撑大。
@@ -198,6 +200,7 @@ export function Board({
             onPreview={onPreview}
             onNotify={onNotify}
             moving={moving}
+            batchToggling={toggling}
             isNew={freshIds.has(card.id)}
             entering={enteringIds.has(card.id)}
             timing={timingId === card.id}
