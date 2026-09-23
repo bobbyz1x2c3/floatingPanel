@@ -22,6 +22,9 @@ type AppWindow = {
   maximize: () => Promise<void>
   unmaximize: () => Promise<void>
   setAlwaysOnTop: (value: boolean) => Promise<void>
+  setShadow?: (enable: boolean) => Promise<void>
+  outerPosition?: () => Promise<{ x: number; y: number }>
+  setPosition?: (position: unknown) => Promise<void>
   setEffects?: (effects: unknown) => Promise<void>
   onResized?: (handler: () => void) => Promise<() => void>
   onDragDropEvent?: (handler: (event: { payload: DragDropEvent }) => void) => Promise<() => void>
@@ -127,6 +130,38 @@ export function observeMaximized(onChange: (value: boolean) => void): () => void
 
 export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
   return run((win) => win.setAlwaysOnTop(value))
+}
+
+/** 专注模式只保留窗口本身，不显示原生白边和阴影。 */
+export function setWindowShadow(enabled: boolean): Promise<boolean> {
+  return run((win) => {
+    if (!win.setShadow) throw new Error('setShadow is unavailable')
+    return win.setShadow(enabled)
+  })
+}
+
+/** 专注模式拖标题时读取原生窗口位置。 */
+export async function getWindowScreenPosition(): Promise<{ x: number; y: number } | null> {
+  const win = await resolveWindow()
+  if (!win?.outerPosition) return null
+  try {
+    return await win.outerPosition()
+  } catch {
+    return null
+  }
+}
+
+/** 专注模式拖标题时直接移动原生窗口。 */
+export async function setWindowScreenPosition(x: number, y: number): Promise<boolean> {
+  const win = await resolveWindow()
+  if (!win?.setPosition) return false
+  try {
+    const dpi = await import('@tauri-apps/api/dpi')
+    await win.setPosition(new dpi.PhysicalPosition(Math.round(x), Math.round(y)))
+    return true
+  } catch {
+    return false
+  }
 }
 
 function resizeByDom(width: number, height: number): void {

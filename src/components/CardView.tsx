@@ -9,7 +9,7 @@ import type {
 import { MAX_ATTACHMENTS, fileToAttachment, mergeAttachments } from '../lib/attachments'
 import { formatDateTime, formatFileSize, formatStamp } from '../lib/format'
 import { caretIndexFromPoint, findLinkAt, listLinks } from '../lib/links'
-import { openModifier, openTarget } from '../lib/platform'
+import { getWindowScreenPosition, isDesktop, openModifier, openTarget, setWindowScreenPosition } from '../lib/platform'
 import { snapValue } from '../lib/store'
 import type { FocusCardTransition } from '../lib/focus'
 import {
@@ -141,6 +141,13 @@ export function CardView({
   audioBackground = false,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
+  const windowDragRef = useRef<{
+    startScreenX: number
+    startScreenY: number
+    startX: number
+    startY: number
+  } | null>(null)
+  const [windowDragging, setWindowDragging] = useState(false)
   const edgeRef = useRef<ResizeEdge | null>(null)
   const archiveTimer = useRef<number | null>(null)
   const movedRef = useRef(false)
@@ -175,6 +182,30 @@ export function CardView({
       window.removeEventListener('dragend', clearDrop)
     }
   }, [])
+
+  useEffect(() => {
+    if (!windowDragging) return
+    const handleMove = (event: PointerEvent) => {
+      const origin = windowDragRef.current
+      if (!origin) return
+      const dpr = window.devicePixelRatio || 1
+      const x = origin.startX + (event.screenX - origin.startScreenX) * dpr
+      const y = origin.startY + (event.screenY - origin.startScreenY) * dpr
+      void setWindowScreenPosition(x, y)
+    }
+    const finish = () => {
+      windowDragRef.current = null
+      setWindowDragging(false)
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+    }
+  }, [windowDragging])
 
   useEffect(() => {
     if (gesture === 'idle') return
@@ -299,6 +330,23 @@ export function CardView({
 
   const handleHeadPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (focusMode && !focusCurrent) return
+    if (focusMode && focusCurrent && isDesktop) {
+      event.preventDefault()
+      const startScreenX = event.screenX
+      const startScreenY = event.screenY
+      void (async () => {
+        const position = await getWindowScreenPosition()
+        if (!position) return
+        windowDragRef.current = {
+          startScreenX,
+          startScreenY,
+          startX: position.x,
+          startY: position.y,
+        }
+        setWindowDragging(true)
+      })()
+      return
+    }
     const target = event.target as HTMLElement
     if (target.closest('button')) return
     const field = target.closest('input')

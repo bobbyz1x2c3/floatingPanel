@@ -33,7 +33,7 @@ import {
   watchNativeDrop,
 } from './lib/platform'
 import type { NativeDrop } from './lib/platform'
-import { enterFocusWindow, resizeFocusWindow, restoreFocusWindow } from './lib/platform'
+import { enterFocusWindow, resizeFocusWindow, restoreFocusWindow, setWindowShadow } from './lib/platform'
 import type { FocusWindowSnapshot } from './lib/platform'
 import { putPreviewPayload } from './lib/preview'
 import { startAudio, stopAudio } from './lib/audio'
@@ -569,6 +569,7 @@ export function App() {
       tone: card.tone,
     }))
     const size = focusStackSize(target)
+    await setWindowShadow(false)
     focusWindowSnapshot.current = await enterFocusWindow(size.width, size.height)
     setFocusPhase('entering')
   }, [notify])
@@ -683,6 +684,7 @@ export function App() {
       focusPhaseTimer.current = window.setTimeout(() => {
         void (async () => {
           await restoreFocusWindow(focusWindowSnapshot.current)
+          await setWindowShadow(true)
           dispatch({ type: 'restoreLayout', cards: focusLayoutSnapshot.current })
           focusWindowSnapshot.current = null
           focusLayoutSnapshot.current = []

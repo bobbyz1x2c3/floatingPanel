@@ -162,7 +162,7 @@
   background: transparent;
   border-color: transparent;
   box-shadow: none;
-  color: var(--nm-muted);
+  color: var(--nm-text-strong);
 }
 
 .tray-btn--ghost:hover {
