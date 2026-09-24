@@ -30,6 +30,8 @@
 
 .nm-btn {
   display: inline-flex;
+  /* 图标按钮里可能有绝对定位的小角标（比如设置按钮上的更新提示点）。 */
+  position: relative;
   align-items: center;
   justify-content: center;
   gap: 8px;

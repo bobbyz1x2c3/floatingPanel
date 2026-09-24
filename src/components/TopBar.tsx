@@ -34,6 +34,8 @@ export interface TopBarProps {
   settingsOpen: boolean
   archiveOpen: boolean
   alwaysOnTop: boolean
+  /** 查到新版本时，设置按钮上亮一个小圆点。 */
+  hasUpdate: boolean
   onArrange: () => void
   onToggleCollapseAll: () => void
   onCycleTheme: () => void
@@ -70,6 +72,7 @@ export function TopBar({
   settingsOpen,
   archiveOpen,
   alwaysOnTop,
+  hasUpdate,
   onArrange,
   onToggleCollapseAll,
   onCycleTheme,
@@ -207,27 +210,28 @@ export function TopBar({
           </span>
         </NeuButton>
 
-      <NeuButton
-        iconOnly
-        size="sm"
-        active={settingsOpen}
-        aria-label="外观与窗口设置"
-        title="外观与窗口设置"
-        onClick={onToggleSettings}
-      >
-        <IconSliders size={16} />
-      </NeuButton>
+        <NeuButton
+          iconOnly
+          size="sm"
+          active={settingsOpen}
+          aria-label={hasUpdate ? '外观与窗口设置（有新版本）' : '外观与窗口设置'}
+          title={hasUpdate ? '外观与窗口设置 · 有新版本可用' : '外观与窗口设置'}
+          onClick={onToggleSettings}
+        >
+          <IconSliders size={16} />
+          {hasUpdate ? <span className="topbar__dot" aria-hidden="true" /> : null}
+        </NeuButton>
 
-      <NeuButton
-        iconOnly
-        size="sm"
-        active={roomOpen || room.length > 0}
-        aria-label={room ? `联机房间 ${room}，同房间 ${peerCount} 人` : '联机'}
-        title={room ? `房间 ${room} · 同房间 ${peerCount} 人` : '联机：创建或加入一个房间'}
-        onClick={onToggleRoom}
-      >
-        <IconUsers size={16} />
-      </NeuButton>
+        <NeuButton
+          iconOnly
+          size="sm"
+          active={roomOpen || room.length > 0}
+          aria-label={room ? `联机房间 ${room}，同房间 ${peerCount} 人` : '联机'}
+          title={room ? `房间 ${room} · 同房间 ${peerCount} 人` : '联机：创建或加入一个房间'}
+          onClick={onToggleRoom}
+        >
+          <IconUsers size={16} />
+        </NeuButton>
 
         <span className="topbar__divider" aria-hidden="true" />
 

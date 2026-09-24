@@ -221,6 +221,31 @@ body.is-desktop .shell::before {
   color: var(--nm-accent);
 }
 
+/* 设置按钮上的「有新版本」小圆点。绝对定位，不参与按钮自身的布局。 */
+.topbar__dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--nm-accent);
+  box-shadow: 0 0 0 2px rgb(var(--glass-rgb) / 0.9);
+  animation: topbar-dot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes topbar-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.78);
+    opacity: 0.6;
+  }
+}
+
 .search {
   position: relative;
   /*
@@ -1170,6 +1195,53 @@ html[data-gesture] .card__title {
   line-height: 1.5;
 }
 
+/* 「发现新版本」时挂在版本一行下面的更新说明，长了就在里面滚。 */
+.drawer__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  border-radius: var(--nm-r-sm);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
+  box-shadow: var(--nm-flat-in);
+}
+
+.drawer__notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nm-accent);
+}
+
+.drawer__notes-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--nm-muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.drawer__notes-link:hover {
+  color: var(--nm-text-strong);
+}
+
+.drawer__notes-body {
+  margin: 0;
+  max-height: 132px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--nm-muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
 /* 托盘工具的列表与新增表单 */
 .tray-list {
   list-style: none;
@@ -1386,10 +1458,14 @@ html[data-gesture] .card__title {
   color: var(--nm-muted);
 }
 
+.shell.is-audio .toast {
+  bottom: 166px;
+}
+
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 22px;
+  bottom: 104px;
   z-index: var(--z-toast);
   transform: translateX(-50%);
   padding: 10px 20px;

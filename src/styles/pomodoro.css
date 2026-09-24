@@ -15,6 +15,7 @@
   bottom: 18px;
   z-index: 58;
   display: flex;
+  max-width: calc(100% - 36px);
   pointer-events: none;
 }
 
@@ -24,11 +25,15 @@
 }
 
 .tray--left {
+  right: auto;
   left: 18px;
+  transform: none;
 }
 
 .tray--right {
   right: 18px;
+  left: auto;
+  transform: none;
 }
 
 /* 开着频谱的时候把托盘抬起来，两者不打架 */
@@ -41,11 +46,18 @@
   这样背景是真的透得出来，靠 backdrop-filter 把它磨砂化。
 */
 .tray__inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   padding: 11px 16px;
   border-radius: var(--nm-r-pill);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   /* 比主面板再透一点（乘 0.82），浮在卡片上才像一块独立的玻璃 */
   background: rgb(var(--glass-rgb) / calc(var(--glass-fill) * 0.82));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
@@ -54,7 +66,23 @@
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight),
     inset 0 -1px 0 rgb(var(--glass-rgb) / 0.14);
   pointer-events: auto;
-  animation: toast-in 260ms var(--nm-ease-out) both;
+  animation: tray-in 260ms var(--nm-ease-out) both;
+}
+
+@keyframes tray-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tray__inner::-webkit-scrollbar {
+  display: none;
 }
 
 /* 玻璃里再来一层很淡的内描边，边界更清楚一点 */
@@ -74,6 +102,7 @@
 /* ---------- 圆形按钮 ---------- */
 
 .tray-btn {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 46px;
@@ -133,7 +162,7 @@
   background: transparent;
   border-color: transparent;
   box-shadow: none;
-  color: var(--nm-muted);
+  color: var(--nm-text-strong);
 }
 
 .tray-btn--ghost:hover {
@@ -152,15 +181,6 @@
   height: 30px;
   margin: 0 2px;
   background: var(--nm-hair);
-}
-
-.tray__clock {
-  min-width: 62px;
-  color: var(--nm-tomato);
-  font-size: 16px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
 }
 
 .tray__empty {
@@ -245,9 +265,33 @@
   font-weight: 700;
 }
 
-/* ---------- 面板背景上的倒计时（.countdown 在 app.css 里，这里只管配色） ---------- */
+/* ---------- 面板背景上的倒计时 ---------- */
+.countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  color: var(--nm-tomato);
+  font-size: 240px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.16;
+  pointer-events: none;
+  animation: countdown-in 500ms var(--nm-ease-out) both;
+}
+
+@media (max-width: 960px) {
+  .countdown {
+    font-size: 160px;
+  }
+}
 
 @media (max-width: 660px) {
+  .countdown {
+    font-size: 96px;
+  }
   .tray__empty {
     display: none;
   }
@@ -266,5 +310,15 @@
   .tray-btn.is-lg img {
     width: 30px;
     height: 30px;
+  }
+}
+
+@keyframes countdown-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.16;
   }
 }

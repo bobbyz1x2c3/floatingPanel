@@ -5,8 +5,7 @@ import { isDesktop } from './platform'
  *
  * 走的是 Tauri 官方的 updater 插件：配置在 src-tauri/tauri.conf.json 的 plugins.updater，
  * 里面写好了更新清单地址（GitHub Release 里的 latest.json）。
- * 现在 pubkey 还是空的，所以 check() 会直接返回错误——界面上会显示「还没配置更新源」，
- * 不会报一堆看不懂的东西。等仓库开始发 Release、把公钥填进去，这条链路就通了。
+ * 公钥已经随应用打包，检查失败会在这里转成人话；签名、清单和网络错误都交给 UI 显示。
  */
 
 export type UpdateState =
@@ -42,8 +41,9 @@ let pending: PendingUpdate | null = null
 function readable(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
   if (/empty public key|public key/i.test(text)) return '还没配置更新公钥'
+  if (/signature|verify|minisign/i.test(text)) return '安装包签名对不上，已拒绝，请到发布页手动下载'
   if (/release JSON|valid release/i.test(text)) return '更新清单还没发布'
-  if (/network|dns|connect|timed? ?out/i.test(text)) return '网络不通，稍后再试'
+  if (/network|dns|connect|timed? ?out|request/i.test(text)) return '网络不通，稍后再试'
   if (/404/.test(text)) return '更新清单还没发布'
   return text.slice(0, 120)
 }

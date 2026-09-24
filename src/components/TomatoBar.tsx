@@ -5,6 +5,7 @@ import tomatoBig from '../../assets/tomato-big.png'
 import { TRAY_KIND_LABELS } from '../lib/types'
 import type { TrayTool } from '../lib/types'
 import { IconClose, IconPlus } from './icons'
+import { IconFocus } from './focusIcons'
 
 export interface TomatoDragPayload {
   minutes: number
@@ -14,9 +15,8 @@ export interface TomatoDragPayload {
 export interface TomatoBarProps {
   shortMinutes: number
   longMinutes: number
-  /** 正在跑的番茄钟：显示剩余时间和取消。 */
-  runningLabel: string | null
-  runningClock: string | null
+  /** 是否有番茄钟正在运行：只决定是否显示取消按钮。 */
+  isRunning: boolean
   tools: TrayTool[]
   showPomodoro: boolean
   showTools: boolean
@@ -24,18 +24,20 @@ export interface TomatoBarProps {
   onRunTool: (tool: TrayTool) => void
   onEditTools: () => void
   onCancel: () => void
+  onEnterFocus: () => void
   onHoverCard: (cardId: string | null) => void
   onDropOnCard: (cardId: string, tomato: TomatoDragPayload) => void
   onDropNothing: () => void
 }
 
 /** 面板里的圆形按钮：托盘的统一手感，图标是 emoji 或者图片。 */
-function TrayButton({
+export function TrayButton({
   label,
   onClick,
   children,
   tone,
   size = 'md',
+  active = false,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -45,6 +47,7 @@ function TrayButton({
   children: ReactNode
   tone?: 'tomato' | 'ghost'
   size?: 'md' | 'lg'
+  active?: boolean
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -52,7 +55,7 @@ function TrayButton({
   return (
     <button
       type="button"
-      className={`tray-btn${tone ? ` tray-btn--${tone}` : ''}${size === 'lg' ? ' is-lg' : ''}`}
+      className={`tray-btn${tone ? ` tray-btn--${tone}` : ''}${size === 'lg' ? ' is-lg' : ''}${active ? ' is-active' : ''}`}
       title={label}
       aria-label={label}
       onClick={onClick}
@@ -155,13 +158,12 @@ function TomatoButton({
 /**
  * 界面下方那块浮动面板：圆形按钮排成一排——
  * 番茄（按住拖到卡片上开始计时）、自定义工具、末尾一个「＋」跳去设置，
- * 计时中时右侧多一个剩余时间和取消。
+ * 计时中时末尾多一个取消按钮。
  */
 export function TomatoBar({
   shortMinutes,
   longMinutes,
-  runningLabel,
-  runningClock,
+  isRunning,
   tools,
   showPomodoro,
   showTools,
@@ -169,12 +171,12 @@ export function TomatoBar({
   onRunTool,
   onEditTools,
   onCancel,
+  onEnterFocus,
   onHoverCard,
   onDropOnCard,
   onDropNothing,
 }: TomatoBarProps) {
   const hasTools = showTools && tools.length > 0
-  const empty = !showPomodoro && !hasTools && !runningClock
 
   return (
     <div className={`tray tray--${align}`} role="group" aria-label="番茄钟与工具">
@@ -200,9 +202,13 @@ export function TomatoBar({
           />
         ) : null}
 
-        {showPomodoro && (hasTools || runningClock) ? (
+        {showPomodoro && (hasTools || showTools) ? (
           <span className="tray__rule" aria-hidden="true" />
         ) : null}
+
+        <TrayButton label="进入专注模式" tone="ghost" onClick={onEnterFocus}>
+          <IconFocus size={18} />
+        </TrayButton>
 
         {hasTools
           ? tools.map((tool) => (
@@ -222,19 +228,15 @@ export function TomatoBar({
           </TrayButton>
         ) : null}
 
-        {runningClock ? (
+        {isRunning ? (
           <>
             <span className="tray__rule" aria-hidden="true" />
-            <span className="tray__clock" title={`${runningLabel} 进行中`}>
-              {runningClock}
-            </span>
             <TrayButton label="取消番茄钟" tone="ghost" onClick={onCancel}>
               <IconClose size={16} />
             </TrayButton>
           </>
         ) : null}
 
-        {empty ? <span className="tray__empty">托盘里还没有东西，去设置里配一下</span> : null}
       </div>
     </div>
   )

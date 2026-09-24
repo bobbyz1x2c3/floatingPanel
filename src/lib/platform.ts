@@ -1,3 +1,5 @@
+import { FOCUS_MIN_HEIGHT, FOCUS_MIN_WIDTH } from './focus'
+
 interface DragDropPosition {
   x: number
   y: number
@@ -14,7 +16,15 @@ type AppWindow = {
   close: () => Promise<void>
   toggleMaximize: () => Promise<void>
   isMaximized: () => Promise<boolean>
+  innerSize: () => Promise<{ width: number; height: number }>
+  setSize: (size: unknown) => Promise<void>
+  setMinSize: (size: unknown) => Promise<void>
+  maximize: () => Promise<void>
+  unmaximize: () => Promise<void>
   setAlwaysOnTop: (value: boolean) => Promise<void>
+  setShadow?: (enable: boolean) => Promise<void>
+  outerPosition?: () => Promise<{ x: number; y: number }>
+  setPosition?: (position: unknown) => Promise<void>
   setEffects?: (effects: unknown) => Promise<void>
   onResized?: (handler: () => void) => Promise<() => void>
   onDragDropEvent?: (handler: (event: { payload: DragDropEvent }) => void) => Promise<() => void>
@@ -120,6 +130,121 @@ export function observeMaximized(onChange: (value: boolean) => void): () => void
 
 export function applyAlwaysOnTop(value: boolean): Promise<boolean> {
   return run((win) => win.setAlwaysOnTop(value))
+}
+
+/** 专注模式只保留窗口本身，不显示原生白边和阴影。 */
+export function setWindowShadow(enabled: boolean): Promise<boolean> {
+  return run((win) => {
+    if (!win.setShadow) throw new Error('setShadow is unavailable')
+    return win.setShadow(enabled)
+  })
+}
+
+/** 专注模式拖标题时读取原生窗口位置。 */
+export async function getWindowScreenPosition(): Promise<{ x: number; y: number } | null> {
+  const win = await resolveWindow()
+  if (!win?.outerPosition) return null
+  try {
+    return await win.outerPosition()
+  } catch {
+    return null
+  }
+}
+
+/** 专注模式拖标题时直接移动原生窗口。 */
+export async function setWindowScreenPosition(x: number, y: number): Promise<boolean> {
+  const win = await resolveWindow()
+  if (!win?.setPosition) return false
+  try {
+    const dpi = await import('@tauri-apps/api/dpi')
+    await win.setPosition(new dpi.PhysicalPosition(Math.round(x), Math.round(y)))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resizeByDom(width: number, height: number): void {
+  try {
+    window.resizeTo(width, height)
+  } catch {
+    /* 浏览器主窗口可能禁止脚本调整尺寸 */
+  }
+}
+
+export interface FocusWindowSnapshot {
+  /** 逻辑像素，和 CSS / LogicalSize 对齐。 */
+  width: number
+  height: number
+  maximized: boolean
+}
+
+/**
+ * 进入专注模式：记录普通窗口尺寸，再把内框缩到“当前卡片 + 下方面板”。
+ * 浏览器窗口不允许脚本改大小，所以浏览器模式只负责界面动效。
+ */
+export async function enterFocusWindow(
+  width: number,
+  height: number,
+): Promise<FocusWindowSnapshot | null> {
+  const win = await resolveWindow()
+  if (!win?.setSize || !win?.setMinSize) return null
+  try {
+    const dpi = await import('@tauri-apps/api/dpi')
+    let snapshot: FocusWindowSnapshot | null = null
+    try {
+      const size = win.innerSize ? await win.innerSize() : null
+      const maximized = win.isMaximized ? await win.isMaximized() : false
+      const dpr = window.devicePixelRatio || 1
+      if (size) snapshot = { width: size.width / dpr, height: size.height / dpr, maximized }
+      if (maximized && win.unmaximize) await win.unmaximize()
+    } catch {
+      /* 尺寸快照失败也不能阻止专注窗口收缩 */
+    }
+    snapshot ??= {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      maximized: false,
+    }
+    await win.setMinSize(new dpi.LogicalSize(FOCUS_MIN_WIDTH, FOCUS_MIN_HEIGHT))
+    await win.setSize(new dpi.LogicalSize(width, height))
+    await win.setMinSize(new dpi.LogicalSize(width, height))
+    return snapshot
+  } catch {
+    resizeByDom(width, height)
+    return null
+  }
+}
+
+/** 切换当前卡片时同步收缩 / 放大桌面窗口。 */
+export async function resizeFocusWindow(width: number, height: number): Promise<void> {
+  const win = await resolveWindow()
+  if (!win?.setSize || !win?.setMinSize) return
+  try {
+    const dpi = await import('@tauri-apps/api/dpi')
+    // 先把下限放开，窗口才能从大卡片切到小卡片，再锁回当前卡片的尺寸。
+    await win.setMinSize(new dpi.LogicalSize(FOCUS_MIN_WIDTH, FOCUS_MIN_HEIGHT))
+    await win.setSize(new dpi.LogicalSize(width, height))
+    await win.setMinSize(new dpi.LogicalSize(width, height))
+  } catch {
+    /* 浏览器或平台不支持时保持现状 */
+    resizeByDom(width, height)
+  }
+}
+
+/** 退出专注模式：恢复进入前的内框尺寸和最大化状态。 */
+export async function restoreFocusWindow(snapshot: FocusWindowSnapshot | null): Promise<void> {
+  const win = await resolveWindow()
+  if (!win?.setSize || !win?.setMinSize || !snapshot) return
+  try {
+    const dpi = await import('@tauri-apps/api/dpi')
+    await win.setMinSize(new dpi.LogicalSize(520, 420))
+    await win.setSize(new dpi.LogicalSize(snapshot.width, snapshot.height))
+    if (snapshot.maximized && win.maximize) await win.maximize()
+  } catch {
+    /* 恢复失败不影响专注模式退出 */
+    resizeByDom(snapshot.width, snapshot.height)
+  }
 }
 
 /** 桌面端把本地文件读成 data URL，浏览器端返回 null。 */

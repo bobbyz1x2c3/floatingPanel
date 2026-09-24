@@ -8,7 +8,10 @@ import { AUDIO_BANDS, watchSpectrum } from '../lib/audio'
  * 所以这里只用 DOM transform 更新（每帧 30 次的量级），不走 React 状态，
  * 免得整块面板跟着重渲染。柱子左右对称，低频在两边、高频在中间。
  */
-export function Spectrum({ label = '系统音频' }: { label?: string }) {
+export function Spectrum({
+  label = '系统音频',
+  variant = 'panel',
+}: { label?: string; variant?: 'panel' | 'card' }) {
   const barsRef = useRef<(HTMLSpanElement | null)[]>([])
   const rootRef = useRef<HTMLDivElement | null>(null)
   // 28 段镜像成 55 根柱子，铺满整条底边。
@@ -45,7 +48,7 @@ export function Spectrum({ label = '系统音频' }: { label?: string }) {
   }, [bars])
 
   return (
-    <div className="spectrum" ref={rootRef} role="img" aria-label={`${label}频谱`}>
+    <div className={`spectrum spectrum--${variant}`} ref={rootRef} role="img" aria-label={`${label}频谱`}>
       <div className="spectrum__bars" aria-hidden="true">
         {bars.map((_, index) => (
           <span

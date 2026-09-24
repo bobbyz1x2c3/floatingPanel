@@ -1,6 +1,6 @@
 [package]
 name = "nemufloat"
-version = "0.1.0"
+version = "0.3.0"
 description = "新拟态悬浮卡片 · 跨平台悬浮卡片面板"
 authors = ["NemuFloat"]
 edition = "2021"

@@ -9,8 +9,9 @@ import type {
 import { MAX_ATTACHMENTS, fileToAttachment, mergeAttachments } from '../lib/attachments'
 import { formatDateTime, formatFileSize, formatStamp } from '../lib/format'
 import { caretIndexFromPoint, findLinkAt, listLinks } from '../lib/links'
-import { openModifier, openTarget } from '../lib/platform'
+import { getWindowScreenPosition, isDesktop, openModifier, openTarget, setWindowScreenPosition } from '../lib/platform'
 import { snapValue } from '../lib/store'
+import type { FocusCardTransition } from '../lib/focus'
 import {
   CARD_MAX_HEIGHT,
   CARD_MAX_WIDTH,
@@ -20,6 +21,7 @@ import {
   quadrantFromPoint,
 } from '../lib/types'
 import type { Attachment, CardData, ZoneSize } from '../lib/types'
+import { Spectrum } from './Spectrum'
 import { NeuButton } from './controls'
 import {
   IconCheck,
@@ -45,7 +47,7 @@ export interface CardViewProps {
   onBringToFront: () => void
   onRemove: () => void
   onArchive: () => void
-  onComplete: () => void
+  onComplete: (cardId: string) => void
   onPreview: (attachment: Attachment) => void
   onNotify: (message: string) => void
   /** 在列表里的序号：用来给入场动效排队，一叠卡片依次落下来。 */
@@ -56,8 +58,25 @@ export interface CardViewProps {
   isNew?: boolean
   /** 首屏那批：播依次落下的入场动效。 */
   entering?: boolean
+  batchToggling?: boolean
   /** 这张卡片上正在跑番茄钟：高亮一下。 */
   timing?: boolean
+  /** 专注模式：卡片只负责展示和编辑内容，不再拖动 / 缩放。 */
+  focusMode?: boolean
+  focusCurrent?: boolean
+  focusDepth?: number
+  focusOffsetX?: number
+  focusOffsetY?: number
+  focusTransition?: FocusCardTransition
+  focusSizeChange?: boolean
+  /** 专注模式：临时展示尺寸；退出时传回每张卡自己的尺寸。 */
+  displayWidth?: number
+  displayHeight?: number
+  focusExiting?: boolean
+  /** 专注模式：显示在这张卡片文本框背景里的倒计时。 */
+  backgroundClock?: string | null
+  /** 专注模式：把音频响应频谱铺在文本框背景里。 */
+  audioBackground?: boolean
 }
 
 interface DragOrigin {
@@ -108,12 +127,34 @@ export function CardView({
   moving = false,
   isNew = false,
   entering = false,
+  batchToggling = false,
   timing = false,
+  focusMode = false,
+  focusCurrent = false,
+  focusDepth = 0,
+  focusOffsetX = 0,
+  focusOffsetY = 0,
+  focusTransition = null,
+  focusSizeChange = false,
+  displayWidth,
+  displayHeight,
+  focusExiting = false,
+  backgroundClock = null,
+  audioBackground = false,
 }: CardViewProps) {
   const originRef = useRef<DragOrigin | null>(null)
+  const windowDragRef = useRef<{
+    startScreenX: number
+    startScreenY: number
+    startX: number
+    startY: number
+  } | null>(null)
+  const [windowDragging, setWindowDragging] = useState(false)
   const edgeRef = useRef<ResizeEdge | null>(null)
   const archiveTimer = useRef<number | null>(null)
   const movedRef = useRef(false)
+  const [focusDragOffset, setFocusDragOffset] = useState({ x: 0, y: 0 })
+  const focusDragOffsetRef = useRef({ x: 0, y: 0 })
   const pendingFocus = useRef<{ field: HTMLInputElement; clientX: number; clientY: number } | null>(
     null,
   )
@@ -145,6 +186,30 @@ export function CardView({
   }, [])
 
   useEffect(() => {
+    if (!windowDragging) return
+    const handleMove = (event: PointerEvent) => {
+      const origin = windowDragRef.current
+      if (!origin) return
+      const dpr = window.devicePixelRatio || 1
+      const x = origin.startX + (event.screenX - origin.startScreenX) * dpr
+      const y = origin.startY + (event.screenY - origin.startScreenY) * dpr
+      void setWindowScreenPosition(x, y)
+    }
+    const finish = () => {
+      windowDragRef.current = null
+      setWindowDragging(false)
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+    }
+  }, [windowDragging])
+
+  useEffect(() => {
     if (gesture === 'idle') return
 
     const handleMove = (event: PointerEvent) => {
@@ -155,9 +220,16 @@ export function CardView({
 
       if (gesture === 'drag') {
         const { onChange: change, snap: snapping, card: current, zone: area } = latest.current
+        const deltaXSnapped = snapValue(deltaX, snapping)
+        const deltaYSnapped = snapValue(deltaY, snapping)
         const x = Math.max(-600, snapValue(origin.startX + deltaX, snapping))
         const y = Math.max(-600, snapValue(origin.startY + deltaY, snapping))
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) movedRef.current = true
+        if (focusMode) {
+          focusDragOffsetRef.current = { x: deltaXSnapped, y: deltaYSnapped }
+          setFocusDragOffset(focusDragOffsetRef.current)
+          return
+        }
         const patch: Partial<CardData> = { x, y }
         const next = quadrantFromPoint(x + current.width / 2, y + current.height / 2, area)
         if (next !== current.quadrant) patch.quadrant = next
@@ -208,12 +280,23 @@ export function CardView({
     const finish = () => {
       const pending = pendingFocus.current
       pendingFocus.current = null
+      const origin = originRef.current
+      if (focusMode && gesture === 'drag' && movedRef.current && origin) {
+        const { onChange: change, snap: snapping } = latest.current
+        const offset = focusDragOffsetRef.current
+        change({
+          x: snapValue(origin.startX + offset.x, snapping),
+          y: snapValue(origin.startY + offset.y, snapping),
+        }, false)
+      }
       // 标题栏既是拖动手柄也是输入框：没拖动就当作一次普通的点击落光标。
       if (pending && !movedRef.current) {
         const index = caretIndexFromPoint(pending.field, pending.clientX, pending.clientY)
         pending.field.focus()
         if (index >= 0) pending.field.setSelectionRange(index, index)
       }
+      focusDragOffsetRef.current = { x: 0, y: 0 }
+      setFocusDragOffset(focusDragOffsetRef.current)
       originRef.current = null
       edgeRef.current = null
       setGesture('idle')
@@ -248,6 +331,24 @@ export function CardView({
   }
 
   const handleHeadPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (focusMode && !focusCurrent) return
+    if (focusMode && focusCurrent && isDesktop) {
+      event.preventDefault()
+      const startScreenX = event.screenX
+      const startScreenY = event.screenY
+      void (async () => {
+        const position = await getWindowScreenPosition()
+        if (!position) return
+        windowDragRef.current = {
+          startScreenX,
+          startScreenY,
+          startX: position.x,
+          startY: position.y,
+        }
+        setWindowDragging(true)
+      })()
+      return
+    }
     const target = event.target as HTMLElement
     if (target.closest('button')) return
     const field = target.closest('input')
@@ -267,6 +368,7 @@ export function CardView({
   }
 
   const handleResizePointerDown = (event: ReactPointerEvent<HTMLSpanElement>, edge: ResizeEdge) => {
+    if (focusMode) return
     // 页面上如果已经有文本选区，不拦掉默认行为的话浏览器会开始一次原生拖放，
     // 指针序列会被 dragstart 打断，缩放就只走了一步。
     event.preventDefault()
@@ -315,7 +417,7 @@ export function CardView({
   const handleArchive = () => {
     if (archiving) return
     // 音效跟着点击走，不等归档动效播完。
-    onComplete()
+    onComplete(card.id)
     setArchiving(true)
     archiveTimer.current = window.setTimeout(() => onArchive(), ARCHIVE_ANIMATION)
   }
@@ -372,16 +474,23 @@ export function CardView({
     active && 'is-front',
     gesture === 'drag' && 'is-dragging',
     gesture === 'resize' && 'is-resizing',
-    card.collapsed && 'is-collapsed',
+    card.collapsed && (!focusMode || focusExiting) && 'is-collapsed',
     dimmed && 'is-dimmed',
     matched && 'is-match',
     timing && 'is-timing',
+    focusMode && 'is-focus-card',
+    focusMode && !focusCurrent && 'is-focus-stack',
+    focusCurrent && 'is-focus-current',
+    focusExiting && 'is-focus-restoring',
+    focusTransition && `is-focus-${focusTransition}`,
+    focusSizeChange && 'is-focus-size',
     archiving && 'is-archiving',
     removing && 'is-removing',
     toggling && 'is-toggling',
     moving && 'is-moving',
     isNew && 'is-new',
     entering && 'is-entering',
+    (toggling || batchToggling) && 'is-toggling',
     gesture === 'drag' && snap && 'is-snapping',
     (dropActive || dropTarget) && 'is-drop',
   ]
@@ -394,16 +503,26 @@ export function CardView({
       data-tone={card.tone}
       data-card-id={card.id}
       data-zone={card.quadrant}
+      data-focus-current={focusCurrent || undefined}
+      data-focus-depth={focusMode ? focusDepth : undefined}
       style={{
-        left: card.x,
-        top: card.y,
-        width: card.width,
+        left: focusMode ? '50%' : card.x,
+        top: focusMode ? '50%' : card.y,
+        width: displayWidth ?? card.width,
         // 显式给高度（收起时是标题栏那一档），这样收起 / 展开才有得过渡。
-        height: card.collapsed ? COLLAPSED_HEIGHT : card.height,
-        zIndex: card.z,
+        height: displayHeight ?? (focusMode || !card.collapsed ? card.height : COLLAPSED_HEIGHT),
+        zIndex: focusMode ? (focusCurrent ? 2000 : 1000 - focusDepth) : card.z,
         ['--enter-delay']: `${Math.min(enterIndex, 11) * 26}ms`,
+        ['--focus-x']: `${focusOffsetX + focusDragOffset.x}px`,
+        ['--focus-y']: `${focusOffsetY + focusDragOffset.y}px`,
       } as CSSProperties}
-      onPointerDown={onBringToFront}
+      onPointerDown={
+        focusMode
+          ? () => {
+              if (!focusCurrent) onBringToFront()
+            }
+          : onBringToFront
+      }
       onPaste={handlePaste}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -455,16 +574,26 @@ export function CardView({
       </div>
 
       <div className="card__body">
-        <textarea
-          className="card__text"
-          value={card.body}
-          aria-label="卡片内容"
-          placeholder="写点什么…图片可以直接粘贴进来"
-          spellCheck={false}
-          onChange={(event) => onChange({ body: event.target.value })}
-          onClick={handleTextClick}
-          onPointerDown={onBringToFront}
-        />
+        <div className={`card__text-shell${focusMode ? ' is-focus' : ''}`}>
+          {focusMode && (audioBackground || backgroundClock) ? (
+            <div className="card__text-backdrop" aria-hidden="true">
+              {audioBackground ? <Spectrum variant="card" label="专注音频" /> : null}
+              {backgroundClock ? (
+                <span className="card__text-clock">{backgroundClock}</span>
+              ) : null}
+            </div>
+          ) : null}
+          <textarea
+            className="card__text"
+            value={card.body}
+            aria-label="卡片内容"
+            placeholder="写点什么…图片可以直接粘贴进来"
+            spellCheck={false}
+            onChange={(event) => onChange({ body: event.target.value })}
+            onClick={handleTextClick}
+            onPointerDown={focusMode ? undefined : onBringToFront}
+          />
+        </div>
 
         {links.length > 0 ? (
           <div className="card__links">
@@ -562,7 +691,7 @@ export function CardView({
         </span>
       ) : null}
 
-      {RESIZE_EDGES.map((edge) => (
+      {!focusMode ? RESIZE_EDGES.map((edge) => (
         <span
           key={edge}
           className={`rz rz--${edge}`}
@@ -571,7 +700,7 @@ export function CardView({
           title="拖动边缘调整大小"
           onPointerDown={(event) => handleResizePointerDown(event, edge)}
         />
-      ))}
+      )) : null}
     </article>
   )
 }

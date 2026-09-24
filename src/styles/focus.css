@@ -1,0 +1,408 @@
+/* 专注模式：卡片叠放、切卡动效、当前卡片文本背景与底部控制条。 */
+
+.shell.is-focus {
+  padding: 0;
+}
+
+.shell.is-focus::before {
+  display: none;
+}
+
+.shell.is-focus .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.shell.is-focus .panel::before {
+  display: none;
+}
+
+.topbar-shell {
+  flex: 0 0 auto;
+  max-height: 88px;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 360ms var(--nm-ease-out), opacity 260ms var(--nm-ease-out),
+    transform 360ms var(--nm-ease-out);
+}
+
+.topbar-shell.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-18px);
+  pointer-events: none;
+}
+
+.focus-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.focus-stage {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 var(--focus-card-height, 0px);
+  width: var(--focus-card-width, 100%);
+  height: var(--focus-card-height, 0px);
+  min-height: var(--focus-card-height, 0px);
+  overflow: hidden;
+}
+
+.focus-stage--entering .card.is-focus-card {
+  animation: focus-gather-in 460ms var(--nm-ease-out) backwards;
+  animation-delay: 280ms;
+}
+
+.focus-stage--exiting .card.is-focus-card {
+  animation: focus-gather-out 520ms var(--nm-ease-out) forwards;
+}
+
+.card.is-focus-card {
+  left: 50%;
+  top: 50%;
+  /* 专注态共享当前卡片尺寸；退出时回到每张卡自己的尺寸。 */
+  min-width: 0;
+  min-height: 0;
+  translate: calc(-50% + var(--focus-x, 0px)) calc(-50% + var(--focus-y, 0px));
+  transition: width 440ms var(--nm-ease-out), height 440ms var(--nm-ease-out),
+    translate 440ms var(--nm-ease-out), opacity 300ms var(--nm-ease-out),
+    filter 300ms var(--nm-ease-out), box-shadow 300ms var(--nm-ease-out);
+  will-change: translate, opacity, filter;
+}
+
+.card.is-focus-restoring {
+  transition-duration: 520ms;
+}
+
+.card.is-focus-card.is-dragging {
+  transition: none;
+}
+
+.card.is-focus-stack {
+  opacity: 0.28;
+  filter: saturate(0.72) brightness(0.88);
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.card.is-focus-stack:hover {
+  opacity: 0.46;
+  filter: saturate(0.84) brightness(0.96);
+}
+
+.card.is-focus-current,
+.card.is-focus-current:hover {
+  opacity: 1;
+  filter: none;
+  transform: scale(1);
+  box-shadow: var(--card-shadow-front);
+}
+
+.card.is-focus-enter-next {
+  z-index: 3000 !important;
+  animation: focus-enter-next 520ms var(--nm-ease-out);
+}
+
+.card.is-focus-enter-previous {
+  z-index: 3000 !important;
+  animation: focus-enter-previous 520ms var(--nm-ease-out);
+}
+
+.card.is-focus-leave-next,
+.card.is-focus-leave-previous {
+  z-index: 2900 !important;
+  pointer-events: none;
+}
+
+.card.is-focus-leave-next {
+  animation: focus-leave-next 520ms var(--nm-ease-out) forwards;
+}
+
+.card.is-focus-leave-previous {
+  animation: focus-leave-previous 520ms var(--nm-ease-out) forwards;
+}
+
+.card.is-focus-size::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  z-index: 5;
+  border: 2px solid color-mix(in srgb, var(--nm-accent) 56%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: focus-size-pulse 520ms var(--nm-ease-out) forwards;
+}
+
+@keyframes focus-gather-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes focus-gather-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.88) translateY(14px);
+  }
+}
+
+@keyframes focus-enter-next {
+  from {
+    opacity: 0.18;
+    transform: translateX(42px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes focus-enter-previous {
+  from {
+    opacity: 0.18;
+    transform: translateX(-42px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes focus-leave-next {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-42px) scale(0.96);
+  }
+}
+
+@keyframes focus-leave-previous {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(42px) scale(0.96);
+  }
+}
+
+@keyframes focus-size-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(1.01);
+  }
+
+  45% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+}
+
+/* ---------- 当前卡片的文本框背景 ---------- */
+
+.card__text-shell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 78px;
+}
+
+.card__text-shell .card__text {
+  flex: 1;
+  min-height: 78px;
+}
+
+.card__text-shell.is-focus {
+  overflow: hidden;
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: var(--nm-r-md);
+  background: rgb(var(--glass-rgb) / var(--glass-fill-field));
+  box-shadow: var(--nm-in-sm);
+}
+
+.card__text-shell.is-focus .card__text {
+  position: relative;
+  z-index: 2;
+  min-height: 78px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.card__text-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.card__text-clock {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--nm-tomato);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.18;
+}
+
+.spectrum--card {
+  inset: 0;
+  height: 100%;
+  opacity: 0.46;
+  animation: none;
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 32%, #000 100%);
+  mask-image: linear-gradient(to top, transparent 0%, #000 32%, #000 100%);
+}
+
+.spectrum--card .spectrum__bars {
+  gap: 2px;
+  height: 100%;
+  padding: 4px 8px;
+}
+
+.spectrum--card .spectrum__bar {
+  border-radius: 4px 4px 1px 1px;
+}
+
+/* ---------- 专注模式底部控制条 ---------- */
+
+.focus-bar {
+  display: flex;
+  flex: 0 0 88px;
+  width: auto;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  padding: 12px 0;
+  transition: transform 360ms var(--nm-ease-out), opacity 260ms var(--nm-ease-out);
+}
+
+.focus-bar__inner {
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--nm-r-pill);
+  background: rgb(var(--glass-rgb) / calc(var(--glass-fill) * 0.82));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.focus-bar__inner::-webkit-scrollbar {
+  display: none;
+}
+
+.focus-bar .tray-btn {
+  flex: 0 0 auto;
+}
+
+.focus-bar .tray-btn.is-active {
+  color: var(--nm-accent);
+  box-shadow: var(--nm-in-sm);
+}
+
+.focus-bar__rule {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 30px;
+  margin: 0 2px;
+  background: var(--nm-hair);
+}
+
+.focus-bar.is-hidden,
+.focus-bar.is-exiting {
+  opacity: 0;
+  transform: translateY(130%);
+  pointer-events: none;
+}
+
+@media (max-width: 420px) {
+  .focus-bar {
+    padding-inline: 0;
+  }
+
+  .focus-bar__inner {
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .focus-bar__rule {
+    display: none;
+  }
+
+  .focus-bar .tray-btn,
+  .focus-bar .tray-btn.is-lg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .focus-bar .tray-btn img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .card__text-clock {
+    font-size: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-stage--entering .card.is-focus-card,
+  .focus-stage--exiting .card.is-focus-card,
+  .card.is-focus-enter-next,
+  .card.is-focus-enter-previous,
+  .card.is-focus-leave-next,
+  .card.is-focus-leave-previous,
+  .card.is-focus-size::after {
+    animation-duration: 0.001ms !important;
+  }
+}
