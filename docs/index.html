@@ -7,12 +7,12 @@
     <title>NemuFloat · 悬浮卡片 · 发布页</title>
     <meta
       name="description"
-      content="NemuFloat 是一块磨砂玻璃 + 新拟态风格的跨平台悬浮卡片面板：四象限待办、归档、图片标注预览窗、音频响应频谱，还带一个给 agent 用的命令行。"
+      content="NemuFloat 是一块悬浮卡片板：用四象限整理待办、笔记、图片和文件，随时归档，也支持番茄钟、专注模式和图片标注。"
     />
     <meta property="og:title" content="NemuFloat · 悬浮卡片" />
     <meta
       property="og:description"
-      content="磨砂玻璃 + 新拟态的跨平台悬浮卡片面板，带四象限整理、图片标注预览窗、音频响应和 CLI。"
+      content="用四象限整理待办、笔记和素材，随时归档；进入专注模式只看当前卡片。"
     />
     <meta property="og:image" content="assets/board-dark.jpg" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
@@ -49,10 +49,10 @@
       <section class="hero">
         <div class="glass hero__card">
           <p class="badge" id="version-badge">最新版本 <b>—</b></p>
-          <h1>一块浮在桌面上的<br /><span class="accent">磨砂玻璃卡片板</span></h1>
+          <h1>一块浮在桌面上的<br /><span class="accent">悬浮卡片板</span></h1>
           <p class="lede">
-            磨砂玻璃背景 + 新拟态控件，用「紧急 / 重要」四象限把事情摆开。
-            原生 Windows / macOS / Linux 悬浮窗，同一套界面也能跑在浏览器里。
+            把待办、笔记、图片和文件放进四象限里整理，随时归档；
+            需要专心时，进入专注模式只留下当前卡片。
           </p>
           <div class="cta">
             <a class="nm nm--primary" id="primary-download" href="#download">
@@ -66,14 +66,14 @@
           </div>
           <dl class="facts">
             <div><dt>平台</dt><dd>Windows · macOS · Linux · Web</dd></div>
-            <div><dt>技术栈</dt><dd>Tauri 2 + React 19 + Vite</dd></div>
-            <div><dt>运行时依赖</dt><dd>零（全部手写 CSS / SVG）</dd></div>
+            <div><dt>数据</dt><dd>全部存在本机</dd></div>
+            <div><dt>更新</dt><dd>桌面端自动更新</dd></div>
           </dl>
         </div>
 
         <figure class="glass shot shot--hero">
           <img src="assets/board-dark.jpg" alt="NemuFloat 深色主题的卡片面板，底部有一层音频频谱" width="1600" height="960" />
-          <figcaption>深色主题 · 底部是跟着系统声音跳动的频谱</figcaption>
+          <figcaption>深色主题 · 底部是跟着音乐跳动的频谱</figcaption>
         </figure>
       </section>
 
@@ -82,27 +82,35 @@
         <div class="grid">
           <article class="glass card">
             <h3><span class="dot" data-tone="rose"></span>四象限画布</h3>
-            <p>卡片跨过分界线就自动换象限、渐变强调色。四周都能拉伸，边缘就是缩放手柄。</p>
+            <p>卡片拖过分界线就自动换象限、跟着象限换颜色。四条边都能拖，想多大就多大。</p>
           </article>
           <article class="glass card">
             <h3><span class="dot" data-tone="sky"></span>整理会找空位</h3>
-            <p>「整理」按从上往下、从左往右找每格第一个放得下的位置：删卡留下的空当会被补上，同一行能并排就并排。</p>
+            <p>点一下「整理」，卡片自动排整齐：删卡留下的空当会被补上，能并排的就并排。</p>
           </article>
           <article class="glass card">
             <h3><span class="dot" data-tone="amber"></span>归档与附件</h3>
-            <p>完成即归档，带归档时间与数量。粘贴截图、拖入图片 / 文件 / 文件夹，网址自动认成链接。</p>
+            <p>做完的卡片点一下就归档，什么时候完成的一目了然。截图、图片、文件、链接都能贴进卡片。</p>
           </article>
           <article class="glass card">
             <h3><span class="dot" data-tone="violet"></span>独立图片预览窗</h3>
-            <p>点缩略图开一个自己的窗口：铅笔 / 矩形 / 圆形 / 箭头临时标注，滚轮缩放、右键拖拽、可置顶。</p>
+            <p>点缩略图单独开一个窗口，铅笔、方框、圆圈、箭头随手标注，滚轮缩放，还能钉在最上层。</p>
           </article>
           <article class="glass card">
-            <h3><span class="dot" data-tone="mint"></span>音频响应</h3>
-            <p>抓系统播放通道（WASAPI 回环），在面板背景铺一层跟着音乐跳动的频谱。音频不出进程、不落盘。</p>
+            <h3><span class="dot" data-tone="mint"></span>番茄钟与专注模式</h3>
+            <p>把番茄拖到卡片上开始倒计时，时间到响铃提醒。专注模式把卡片收成一叠，只看你正在做的那张。</p>
           </article>
           <article class="glass card">
-            <h3><span class="dot" data-tone="graphite"></span>给 agent 用的 CLI</h3>
-            <p><code>nemu</code> 直接读写卡片，界面和命令行共用一份状态文件，写完 1~2 秒画面就更新。还附了一份 skill。</p>
+            <h3><span class="dot" data-tone="graphite"></span>背景频谱</h3>
+            <p>打开后，面板背景会跟着声音变化，画面更有节奏感。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="rose"></span>命令行协作</h3>
+            <p>用 <code>nemu</code> 添加、查找和完成卡片，适合把整理工作交给 agent。</p>
+          </article>
+          <article class="glass card">
+            <h3><span class="dot" data-tone="sky"></span>自动更新</h3>
+            <p>桌面端启动时自动检查新版本，设置里也可以手动检查，下载安装一步到位。</p>
           </article>
         </div>
       </section>
@@ -112,7 +120,7 @@
         <div class="shots">
           <figure class="glass shot">
             <img src="assets/board-light.jpg" alt="浅色主题的卡片面板" width="1600" height="960" loading="lazy" />
-            <figcaption>浅色主题 · 搜索框居中，右上角是窗口按钮</figcaption>
+            <figcaption>浅色主题 · 顶栏一排常用按钮</figcaption>
           </figure>
           <figure class="glass shot">
             <img src="assets/preview.jpg" alt="图片预览窗，带铅笔、矩形、圆形、箭头标注工具" width="1200" height="840" loading="lazy" />
@@ -142,8 +150,8 @@
             或者按下面的步骤自己编一个。
           </p>
           <p class="muted release__hint">
-            每次打标签都会在 CI 上并行构建 <b>Windows</b>（NSIS + MSI）、<b>macOS</b>（Apple Silicon / Intel 两个 dmg）、
-            <b>Linux</b>（AppImage + deb），全部传成同一个版本的附件。
+            每个版本都提供 <b>Windows</b>、<b>macOS</b>、<b>Linux</b> 的安装包，
+            选自己系统对应的下载就行。
           </p>
         </div>
 
@@ -157,52 +165,29 @@
         </div>
 
         <div class="glass build">
-          <h3>从源码构建</h3>
-          <pre><code>git clone https://github.com/bobbyz1x2c3/floatingPanel.git
-cd floatingPanel
-npm install
-npm run desktop:build     <span class="c"># 打包当前平台的安装包</span>
-npm run cli:build         <span class="c"># 顺带编一个 nemu 命令行</span></code></pre>
-          <p class="muted">
-            需要 Node.js 20+ 与 Rust 1.77+；Windows 上还要有 WebView2（Win11 自带）。
-            打包脚本会自动下载 WiX / NSIS。
-          </p>
+          <h3>需要自己构建？</h3>
+          <p class="muted">发布页提供各平台安装包，源码构建说明请查看仓库。</p>
         </div>
       </section>
 
       <section id="cli" class="section">
         <h2>命令行与 skill</h2>
         <div class="two">
-          <div class="glass card card--wide">
+          <article class="glass card card--wide">
             <h3>nemu</h3>
-            <pre><code>nemu list                       <span class="c"># 看板子上有什么</span>
-nemu add --title "写周报" --quadrant schedule
-nemu search 周报
-nemu done '#2'                  <span class="c"># 完成并归档</span>
-nemu board --json               <span class="c"># 给机器读</span></code></pre>
-            <p>
-              选择器支持完整 id、id 前缀和 <code>#序号</code>；所有命令都能加 <code>--json</code>。
-              状态文件在 <code>%APPDATA%\app.nemufloat.desktop\board.json</code>（桌面端），
-              界面每 1.2 秒比一次修改时间，所以命令行写完窗口里马上就有。
-            </p>
-          </div>
-          <div class="glass card card--wide">
-            <h3>skills/nemufloat-cards</h3>
-            <p>
-              仓库里带了一份给 agent 用的 skill，把命令、象限含义和常用流程写成一页说明。
-              放进 <code>~/.codex/skills/</code> 之后，你跟 agent 说「把这几件事记到悬浮卡片上」，
-              它就知道该调 <code>nemu</code>。
-            </p>
-            <pre><code>npm run cli:build
-nemu path                       <span class="c"># 状态文件在哪</span></code></pre>
-          </div>
+            <p>用命令添加、查找和完成卡片，适合把整理工作交给 agent。</p>
+          </article>
+          <article class="glass card card--wide">
+            <h3>nemufloat-cards</h3>
+            <p>把常用命令和流程交给 agent，直接在看板上记录和更新事项。</p>
+          </article>
         </div>
       </section>
     </main>
 
     <footer class="foot">
       <p>NemuFloat · MIT · <a href="https://github.com/bobbyz1x2c3/floatingPanel">bobbyz1x2c3/floatingPanel</a></p>
-      <p class="muted">桌面端内置自动更新：设置里可以手动检查，也可以让它启动时自己问一次。</p>
+      <p class="muted">桌面端内置自动更新，启动时自动检查，也可以在设置里手动检查。</p>
     </footer>
 
     <script src="app.js?v=__V__"></script>
