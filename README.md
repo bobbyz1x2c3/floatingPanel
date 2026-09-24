@@ -77,6 +77,32 @@ npm run icon           # 由 src-tauri/icon-source.png 重新生成全平台图�
 
 > `vite` 使用 `--configLoader runner`，避免配置经 esbuild 打包。若你的环境无此限制，也可以去掉该参数。
 
+## 插件接口
+
+主分支只提供插件宿主，联机、额外展示这类能力由插件接入。插件可以读取卡片状态、修改卡片和设置，也可以注册顶栏按钮、背景图层或右侧面板：
+
+```js
+window.NemuFloatPlugins.register({
+  id: 'my-plugin',
+  name: '我的插件',
+  setup(context) {
+    const stop = context.subscribe((snapshot) => console.log(snapshot.state.cards))
+    context.registerTopbarButton({ id: 'open', icon: 'sparkle', onClick: () => context.notify('Hello') })
+    context.registerOverlay({
+      id: 'background',
+      layer: 'background',
+      mount(container) {
+        container.innerHTML = '<div class="my-overlay"></div>'
+        return () => container.replaceChildren()
+      },
+    })
+    return stop
+  },
+})
+```
+
+把插件模块放在同源的 `public/plugins/` 下，再执行 `await window.NemuFloatPlugins.load('/plugins/my-plugin.js')`。模块默认导出一个 `PluginDefinition`，或者导出返回 `PluginDefinition` 的函数。运行中的插件可用 `list()` 查看，用 `unload(id)` 卸载；插件失败时会隔离错误，不影响主面板。
+
 ## 跨平台打包
 
 在目标系统上执行 `npm run desktop:build` 即可得到本机安装包：

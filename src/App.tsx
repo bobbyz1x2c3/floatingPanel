@@ -14,6 +14,7 @@ import { SettingsDrawer } from './components/SettingsDrawer'
 import { Spectrum } from './components/Spectrum'
 import { TomatoBar } from './components/TomatoBar'
 import { TopBar } from './components/TopBar'
+import { PluginOverlayLayer, PluginPanelLayer } from './components/PluginSlots'
 import {
   MAX_ATTACHMENTS,
   fileToAttachment,
@@ -52,6 +53,9 @@ import {
 } from './lib/boardFile'
 import { clearState, loadState, saveState } from './lib/storage'
 import { boardReducer, createInitialState } from './lib/store'
+import { createId } from './lib/id'
+import { bindPluginHost, updatePluginSnapshot } from './lib/pluginRuntime'
+import type { PluginCardInput, PluginHostBridge } from './lib/pluginTypes'
 import { quadrantFromPoint, zoneSizeFor } from './lib/types'
 import type { Attachment, CardData, Settings, ZoneSize } from './lib/types'
 import { playCompleteSound } from './lib/sound'
@@ -192,6 +196,18 @@ export function App() {
   const { cards, archived, settings } = state
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+
+  const pluginSnapshot = useMemo(
+    () => ({
+      state,
+      zone,
+      mode: focusPhase === 'idle' ? ('desktop' as const) : ('focus' as const),
+      currentCardId: focusCurrentId,
+      pomodoro: pomodoro ? { ...pomodoro, remaining } : null,
+    }),
+    [focusCurrentId, focusPhase, pomodoro, remaining, state, zone],
+  )
+  useEffect(() => updatePluginSnapshot(pluginSnapshot), [pluginSnapshot])
 
   // Board 自身观察尺寸变化；窗口 resize 走全局兜底，专注模式退出重挂后也不会丢更新。
   useLayoutEffect(() => {
@@ -772,6 +788,42 @@ export function App() {
     dispatch({ type: 'settings', patch })
   }, [])
 
+  const pluginBridge = useMemo<PluginHostBridge>(
+    () => ({
+      addCard: (input: PluginCardInput = {}) => {
+        const id = createId()
+        dispatch({
+          type: 'add',
+          id,
+          zone: zoneRef.current,
+          quadrant: input.quadrant,
+          x: input.x,
+          y: input.y,
+          width: input.width,
+          height: input.height,
+          title: input.title,
+          body: input.body,
+          attachments: input.attachments,
+        })
+        return id
+      },
+      updateCard,
+      removeCard: (id) => {
+        dispatch({ type: 'remove', id })
+        handleFocusCardRemoved(id)
+      },
+      archiveCard: (id) => {
+        dispatch({ type: 'archive', id })
+        handleFocusCardRemoved(id)
+      },
+      setActiveCard: (id) => dispatch(id ? { type: 'focus', id } : { type: 'blur' }),
+      setSettings: patchSettings,
+      notify,
+    }),
+    [handleFocusCardRemoved, notify, patchSettings, updateCard],
+  )
+  useEffect(() => bindPluginHost(pluginBridge), [pluginBridge])
+
   // 音频响应：开了就让 Rust 那边开始抓系统声音，关掉（或离开）就停。
   useEffect(() => {
     if (!isDesktop || !settings.audioReactive) return
@@ -977,6 +1029,8 @@ export function App() {
           </div>
         ) : null}
 
+        <PluginOverlayLayer layer="background" />
+
         <div className={`topbar-shell${focusPhase !== 'idle' ? ' is-collapsed' : ''}`}>
         <TopBar
           isDesktop={isDesktop}
@@ -1080,6 +1134,8 @@ export function App() {
           />
         )}
 
+        <PluginOverlayLayer layer="top" />
+
         {focusPhase === 'idle' && archiveOpen ? (
           <ArchiveDrawer
             archived={archived}
@@ -1119,6 +1175,8 @@ export function App() {
             onClose={() => setSettingsOpen(false)}
           />
         ) : null}
+
+        {focusPhase === 'idle' ? <PluginPanelLayer /> : null}
 
         {toast ? (
           <div className={`toast${toastLeaving ? ' is-leaving' : ''}`} role="status">

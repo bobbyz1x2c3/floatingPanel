@@ -263,6 +263,17 @@ export function IconCircle(props: Omit<IconProps, 'children'>) {
   )
 }
 
+export function IconUsers(props: Omit<IconProps, 'children'>) {
+  return (
+    <Icon {...props}>
+      <circle cx="9.4" cy="8.4" r="3.4" />
+      <path d="M3.6 19.4a5.8 5.8 0 0 1 11.6 0" />
+      <path d="M16.2 5.6a3.2 3.2 0 0 1 0 6.2" />
+      <path d="M17.6 14.4a5 5 0 0 1 3.4 4.4" />
+    </Icon>
+  )
+}
+
 export function IconArrowLine(props: Omit<IconProps, 'children'>) {
   return (
     <Icon {...props}>

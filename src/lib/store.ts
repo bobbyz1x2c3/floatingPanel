@@ -19,9 +19,12 @@ export type BoardAction =
   | {
       type: 'add'
       zone: ZoneSize
+      id?: string
       quadrant?: Quadrant
       x?: number
       y?: number
+      width?: number
+      height?: number
       title?: string
       body?: string
       attachments?: Attachment[]
@@ -109,6 +112,7 @@ const EXAMPLE_SEEDS: CardSeed[] = [
 ]
 
 interface BuildSeed extends Partial<CardSeed> {
+  id?: string
   z: number
   quadrant: Quadrant
   x?: number
@@ -124,7 +128,7 @@ function buildCard(seed: BuildSeed): CardData {
     seed.height ?? CARD_DEFAULT_HEIGHT,
   )
   return {
-    id: createId(),
+    id: seed.id ?? createId(),
     title: seed.title ?? '新卡片',
     body: seed.body ?? '',
     tone: QUADRANT_META[seed.quadrant].tone,
@@ -347,7 +351,7 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       // 没指定坐标时，先在这一格里找空位，找不到才退回角上的层叠位置。
       const free =
         action.x === undefined || action.y === undefined
-          ? freeSpotFor(state.cards, quadrant, action.zone, CARD_DEFAULT_WIDTH, CARD_DEFAULT_HEIGHT)
+          ? freeSpotFor(state.cards, quadrant, action.zone, action.width ?? CARD_DEFAULT_WIDTH, action.height ?? CARD_DEFAULT_HEIGHT)
           : null
       const fallback = cascade(
         quadrant,
@@ -355,9 +359,12 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         action.zone,
       )
       const card = buildCard({
+        id: action.id,
         title: action.title ?? '新卡片',
         body: action.body ?? '',
         attachments: action.attachments,
+        width: action.width,
+        height: action.height,
         quadrant,
         x: action.x ?? free?.x ?? fallback.x,
         y: action.y ?? free?.y ?? fallback.y,

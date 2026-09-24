@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 import { observeMaximized } from '../lib/platform'
 import { NeuButton, NeuField } from './controls'
+import { PluginTopbarButtons } from './PluginSlots'
 import {
   IconArchive,
   IconChevronDown,
@@ -113,6 +114,7 @@ export function TopBar({
           </span>
           <h1 className="topbar__title">悬浮卡片</h1>
         </div>
+        <PluginTopbarButtons />
       </div>
 
       <div className="topbar__center">

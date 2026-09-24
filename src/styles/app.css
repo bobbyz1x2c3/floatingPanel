@@ -162,6 +162,41 @@ body.is-desktop .shell::before {
   min-width: 0;
 }
 
+.topbar__plugins {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.topbar__plugin-label {
+  margin-left: 5px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plugin-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.plugin-layer--top {
+  z-index: 35;
+}
+
+.plugin-mount {
+  position: absolute;
+  inset: 0;
+}
+
+.drawer--plugin .plugin-mount {
+  position: relative;
+  inset: auto;
+  min-height: 80px;
+}
+
 .brand-mark {
   display: grid;
   place-items: center;
